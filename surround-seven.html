@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Surround Seven — Hex Fill-a-Pix</title>
+<style>
+  :root {
+    --bg: #0e0e0e;
+    --panel: #161616;
+    --cell: #232323;
+    --cell-hover: #2f2f2f;
+    --green: #5ce05c;
+    --mark-red: #7a2f2f;
+    --mark-red-h: #934040;
+    --text: #d8d8d8;
+    --num: #cfcfcf;
+    --num-on-green: #0b3d0b;
+    --bad: #e0564c;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    display: flex; flex-direction: column; align-items: center;
+    padding: 18px 12px 60px; min-height: 100vh;
+  }
+  h1 { font-size: 22px; margin: 0 0 2px; letter-spacing: .5px; }
+  h1 span { color: var(--green); }
+  .sub { color: #888; font-size: 13px; margin-bottom: 16px; text-align: center; }
+  .controls {
+    display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+    justify-content: center; margin-bottom: 14px; max-width: 780px;
+  }
+  .controls label { font-size: 13px; color: #aaa; display: flex; align-items: center; gap: 5px; }
+  select, button {
+    background: var(--panel); color: var(--text); border: 1px solid #333;
+    border-radius: 6px; padding: 7px 12px; font-size: 13px; cursor: pointer; font-family: inherit;
+  }
+  button:hover, select:hover { border-color: #555; background: #1e1e1e; }
+  button.primary { background: var(--green); color: #062806; border-color: var(--green); font-weight: 600; }
+  button.primary:hover { background: #6ef06e; }
+  #status { min-height: 22px; font-size: 14px; margin-bottom: 10px; font-weight: 600; text-align: center; }
+  #status.win { color: var(--green); }
+  #status.err { color: var(--bad); }
+  #status.info { color: #9bb; }
+  .board-wrap { background: #000; padding: 10px; border-radius: 8px; }
+  svg { display: block; }
+  polygon { stroke: #000; stroke-width: 1.5; cursor: pointer; transition: fill .05s; }
+  polygon:hover { fill: var(--cell-hover); }
+  polygon.filled { fill: var(--green); }
+  polygon.filled:hover { fill: #6ef06e; }
+  polygon.empty { fill: var(--mark-red); }
+  polygon.empty:hover { fill: var(--mark-red-h); }
+  polygon.bad { stroke: var(--bad); stroke-width: 3; }
+  polygon.hint { stroke: #ffd24a; stroke-width: 3.5; }
+  text { pointer-events: none; font-weight: 600; fill: var(--num); user-select: none; transition: opacity .1s; }
+  text.on-green { fill: var(--num-on-green); }
+  text.done { opacity: 0.28; }
+  .legend { font-size: 12px; color: #888; margin-top: 14px; max-width: 580px; text-align: center; line-height: 1.6; }
+  .navlink { margin-top: 8px; font-size: 12px; }
+  .navlink a { color: var(--green); }
+  details { max-width: 620px; margin-top: 20px; font-size: 13px; color: #aaa; line-height: 1.55; }
+  summary { cursor: pointer; color: var(--green); font-weight: 600; }
+  details li { margin: 6px 0; }
+</style>
+</head>
+<body>
+  <h1>Surround <span>Seven</span></h1>
+  <div class="sub">Hex Fill-a-Pix — each number = green hexes in its 7-cell cluster (itself + its 6 neighbours)</div>
+
+  <div class="controls">
+    <label>Size
+      <select id="size">
+        <option value="2">Small (radius 2)</option>
+        <option value="3" selected>Medium (radius 3)</option>
+        <option value="4">Large (radius 4)</option>
+        <option value="5">Huge (radius 5, slow)</option>
+      </select>
+    </label>
+    <label>Density
+      <select id="density">
+        <option value="0.4">Sparse</option>
+        <option value="0.55" selected>Balanced</option>
+        <option value="0.7">Dense</option>
+      </select>
+    </label>
+    <label>Clues
+      <select id="assist">
+        <option value="gentle" selected>Gentle (more breadcrumbs)</option>
+        <option value="standard">Standard</option>
+        <option value="minimal">Minimal (hardest)</option>
+      </select>
+    </label>
+    <button class="primary" id="new">New Puzzle</button>
+    <button id="check">Check</button>
+    <button id="hint">Hint</button>
+    <button id="reset">Reset</button>
+    <button id="solve">Show Solution</button>
+  </div>
+
+  <div id="status"></div>
+  <div class="board-wrap"><svg id="board"></svg></div>
+
+  <div class="legend">
+    <strong>Left-click</strong> / drag = paint green &nbsp;•&nbsp; <strong>Right-click</strong> / drag = mark empty (red) &nbsp;•&nbsp; click again to clear<br>
+    Numbers <span style="opacity:.4">fade</span> once every cell in their cluster is decided (greens placed + rest red).<br>
+    Hexes have 6 neighbours, so clues range 0–7. Every puzzle is solvable by pure logic — no guessing.<br>
+    <em>Marking empties is essential</em> — a satisfied clue forces its remaining cells empty, which unlocks the next greens. Stuck? <strong>Next Step</strong> always finds a forced move.
+  </div>
+  <div class="navlink"><a href="index.html">← Square-grid version (Surround Nine)</a></div>
+
+  <details>
+    <summary>How the hex puzzle is generated</summary>
+    <ul>
+      <li><strong>Board:</strong> a hexagon of hex cells in axial coordinates. Each cell's "cluster" is itself plus its 6 axial neighbours (fewer on the rim).</li>
+      <li><strong>Random solution → clues:</strong> the grid is filled randomly; each cell's clue is the count of green cells in its 7-cell cluster.</li>
+      <li><strong>Greedy removal under a logic solver:</strong> clues are removed one by one and kept removed only if a deduction-only solver can still rebuild the whole board (rules: cluster's remaining need == its unknowns → all green; cluster already satisfied → rest empty).</li>
+      <li><strong>Result:</strong> a unique, no-guess puzzle. This is the exact same engine as the square version — only the adjacency graph changed from 8 neighbours to 6.</li>
+    </ul>
+  </details>
+
+<script>
+"use strict";
+const SVG_NS = "http://www.w3.org/2000/svg";
+const boardEl = document.getElementById("board");
+const statusEl = document.getElementById("status");
+
+// hex (pointy-top, axial q,r) neighbour directions
+const DIRS = [[1,0],[1,-1],[0,-1],[-1,0],[-1,1],[0,1]];
+
+let R = 3;
+let cells = [];        // {q,r,idx,cx,cy} list
+let idxOf = new Map(); // "q,r" -> idx
+let adj = [];          // adj[idx] = [neighbour idx,...]
+let block = [];        // block[idx] = [idx, ...neighbours]
+let solution = [];     // 0/1 per idx
+let clues = [];        // number | null per idx
+let state = [];        // 0 unknown, 1 filled, 2 marked
+let poly = [], txt = [];
+let solved = false;
+
+// ---------- generic helpers ----------
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+
+function buildTopology(radius){
+  R = radius;
+  cells = []; idxOf = new Map();
+  for(let q=-R;q<=R;q++)
+    for(let r=-R;r<=R;r++){
+      if(Math.abs(q+r)>R) continue;          // hexagon constraint (cube s=-q-r)
+      const idx = cells.length;
+      idxOf.set(q+","+r, idx);
+      cells.push({q,r,idx});
+    }
+  adj = cells.map(()=>[]);
+  block = cells.map(c=>[c.idx]);
+  for(const c of cells){
+    for(const [dq,dr] of DIRS){
+      const k = idxOf.get((c.q+dq)+","+(c.r+dr));
+      if(k!==undefined){ adj[c.idx].push(k); block[c.idx].push(k); }
+    }
+  }
+}
+
+// ---------- deduction solver (generic over block[]) ----------
+// known: array of -1 unknown / 0 empty / 1 filled. Returns solved|partial|contradiction.
+function deduce(cluesArr, known){
+  let prog = true;
+  while(prog){
+    prog = false;
+    for(let i=0;i<cells.length;i++){
+      const clue = cluesArr[i];
+      if(clue===null) continue;
+      let kf=0; const unk=[];
+      for(const j of block[i]){
+        if(known[j]===1) kf++;
+        else if(known[j]===-1) unk.push(j);
+      }
+      const need = clue - kf;
+      if(need<0 || need>unk.length) return "contradiction";
+      if(unk.length===0) continue;
+      if(need===0){ for(const j of unk) known[j]=0; prog=true; }
+      else if(need===unk.length){ for(const j of unk) known[j]=1; prog=true; }
+    }
+  }
+  for(let i=0;i<cells.length;i++) if(known[i]===-1) return "partial";
+  return "solved";
+}
+function trySolve(cluesArr){
+  const known = new Array(cells.length).fill(-1);
+  const res = deduce(cluesArr, known);
+  return {res, known};
+}
+
+// ---------- generator ----------
+// assist: 'gentle' | 'standard' | 'minimal' — how many *removable* clues we put back
+// to keep the breadcrumb trail dense and local.
+function generate(radius, density, assist){
+  buildTopology(radius);
+  const n = cells.length;
+  const keepBackFrac = assist==="gentle" ? 0.6 : assist==="standard" ? 0.3 : 0;
+  while(true){
+    solution = cells.map(()=> Math.random()<density?1:0);
+    const full = cells.map((c,i)=>{ let s=0; for(const j of block[i]) s+=solution[j]; return s; });
+    if(trySolve(full).res!=="solved") continue;       // need full board solvable
+    const working = full.slice();
+    const removed = [];
+    for(const i of shuffle(cells.map((_,i)=>i))){
+      const saved = working[i];
+      working[i] = null;
+      const {res, known} = trySolve(working);
+      let ok = res==="solved";
+      if(ok) for(let k=0;k<n;k++) if(known[k]!==solution[k]){ ok=false; break; }
+      if(!ok) working[i] = saved; else removed.push(i);
+    }
+    // Restore a fraction of removed clues for gentler, more local breadcrumbing.
+    // (Adding clues back to a forced-solvable board can never break solvability.)
+    shuffle(removed);
+    const restore = Math.round(removed.length * keepBackFrac);
+    for(let k=0;k<restore;k++) working[removed[k]] = full[removed[k]];
+    clues = working;
+    return;
+  }
+}
+
+// ---------- rendering ----------
+function hexPoints(cx, cy, s){
+  const pts=[];
+  for(let i=0;i<6;i++){
+    const ang = Math.PI/180*(60*i - 30);   // pointy-top
+    pts.push((cx+s*Math.cos(ang)).toFixed(2)+","+(cy+s*Math.sin(ang)).toFixed(2));
+  }
+  return pts.join(" ");
+}
+
+function buildBoard(){
+  const s = R<=2 ? 42 : R===3 ? 34 : R===4 ? 28 : 24;  // hex radius (center→corner)
+  const fontPx = (s*0.85)|0;
+  const W = Math.sqrt(3)*s, H = 1.5*s;
+  // pixel positions
+  let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+  for(const c of cells){
+    c.cx = W*(c.q + c.r/2);
+    c.cy = H*c.r;
+    minX=Math.min(minX,c.cx); maxX=Math.max(maxX,c.cx);
+    minY=Math.min(minY,c.cy); maxY=Math.max(maxY,c.cy);
+  }
+  const pad = s + 4;
+  const ox = pad - minX, oy = pad - minY;
+  const svgW = (maxX-minX)+2*pad, svgH = (maxY-minY)+2*pad;
+  boardEl.setAttribute("width", svgW.toFixed(0));
+  boardEl.setAttribute("height", svgH.toFixed(0));
+  boardEl.innerHTML = "";
+  poly=[]; txt=[];
+  for(const c of cells){
+    const cx = c.cx+ox, cy = c.cy+oy;
+    const p = document.createElementNS(SVG_NS,"polygon");
+    p.setAttribute("points", hexPoints(cx,cy,s-1));
+    p.setAttribute("fill", getComputedStyle(document.documentElement).getPropertyValue("--cell").trim());
+    p.dataset.idx = c.idx;
+    boardEl.appendChild(p);
+    poly[c.idx]=p;
+
+    if(clues[c.idx]!==null){
+      const t = document.createElementNS(SVG_NS,"text");
+      t.setAttribute("x",cx); t.setAttribute("y",cy+1);
+      t.setAttribute("text-anchor","middle");
+      t.setAttribute("dominant-baseline","central");
+      t.setAttribute("font-size",fontPx);
+      t.textContent = clues[c.idx];
+      boardEl.appendChild(t);
+      txt[c.idx]=t;
+    }
+  }
+  renderCell();
+}
+
+function paintCell(i){
+  const p = poly[i];
+  p.classList.toggle("filled", state[i]===1);
+  p.classList.toggle("empty", state[i]===2);
+  p.classList.remove("bad","hint");
+  if(txt[i]) txt[i].classList.toggle("on-green", state[i]===1);
+}
+// Fade a clue only when its whole cluster is decided (no unknowns left)
+// and the green count matches — i.e. the clue is fully closed out.
+function updateFades(){
+  for(let i=0;i<cells.length;i++){
+    if(clues[i]===null) continue;
+    let g=0, unknown=0;
+    for(const j of block[i]){ if(state[j]===1) g++; else if(state[j]===0) unknown++; }
+    txt[i].classList.toggle("done", unknown===0 && g===clues[i]);
+  }
+}
+function renderCell(){ for(let i=0;i<cells.length;i++) paintCell(i); updateFades(); }
+
+// ---------- interaction ----------
+let dragging=false, dragButton=0, dragApply=null;
+function applyPaint(i, button){
+  if(solved) return;
+  if(button===2){ if(dragApply===null) dragApply = state[i]===2?0:2; state[i]=dragApply; }
+  else { if(dragApply===null) dragApply = state[i]===1?0:1; state[i]=dragApply; }
+  paintCell(i);
+  updateFades();
+}
+boardEl.addEventListener("mousedown", e=>{
+  const t=e.target.closest("polygon"); if(!t) return;
+  e.preventDefault();
+  dragging=true; dragButton=e.button; dragApply=null;
+  applyPaint(+t.dataset.idx, e.button);
+});
+boardEl.addEventListener("mouseover", e=>{
+  if(!dragging) return;
+  const t=e.target.closest("polygon"); if(!t) return;
+  applyPaint(+t.dataset.idx, dragButton);
+});
+window.addEventListener("mouseup", ()=>{ if(dragging){ dragging=false; checkWin(true); } });
+boardEl.addEventListener("contextmenu", e=>e.preventDefault());
+boardEl.addEventListener("touchstart", e=>{
+  const el=document.elementFromPoint(e.touches[0].clientX, e.touches[0].clientY);
+  const t=el&&el.closest("polygon"); if(!t) return;
+  e.preventDefault(); dragApply=null;
+  applyPaint(+t.dataset.idx, 0); checkWin(true);
+},{passive:false});
+
+// ---------- status / win ----------
+function setStatus(msg,cls){ statusEl.textContent=msg; statusEl.className=cls||""; }
+function checkWin(silent){
+  for(let i=0;i<cells.length;i++){
+    const want = solution[i]===1 ? 1 : 2;   // green where solution is filled, red elsewhere
+    if(state[i]!==want){ if(!silent) setStatus("Not solved yet — keep going.","info"); return false; }
+  }
+  solved=true; setStatus("🜚 Solved! Every clue is satisfied.","win"); return true;
+}
+
+// ---------- buttons ----------
+document.getElementById("new").onclick = ()=>newPuzzle();
+document.getElementById("reset").onclick = ()=>{ state=cells.map(()=>0); solved=false; renderCell(); setStatus("Board cleared.","info"); };
+document.getElementById("solve").onclick = ()=>{
+  for(let i=0;i<cells.length;i++) state[i]= solution[i]===1?1:2;
+  solved=true; renderCell(); setStatus("Solution revealed.","info");
+};
+document.getElementById("check").onclick = ()=>{
+  let bad=0;
+  for(let i=0;i<cells.length;i++){
+    poly[i].classList.remove("bad");
+    if(state[i]===1 && solution[i]===0){ poly[i].classList.add("bad"); bad++; }
+  }
+  if(checkWin(true)) return;
+  setStatus(bad? `${bad} green hex(es) are wrong (outlined red).` : "No mistakes so far — but not finished.", bad?"err":"info");
+};
+document.getElementById("hint").onclick = ()=>{
+  if(solved) return;
+  const known = new Array(cells.length).fill(-1);
+  for(let i=0;i<cells.length;i++){ if(state[i]===1) known[i]=1; else if(state[i]===2) known[i]=0; }
+  let greenMove=null, emptyMove=null;
+  for(let i=0;i<cells.length;i++){
+    const clue=clues[i]; if(clue===null) continue;
+    let kf=0; const unk=[];
+    for(const j of block[i]){ if(known[j]===1) kf++; else if(known[j]===-1) unk.push(j); }
+    if(unk.length===0) continue;
+    const need=clue-kf;
+    if(need===unk.length && !greenMove) greenMove={clue,cell:unk[0]};
+    else if(need===0 && !emptyMove) emptyMove={clue,cell:unk[0]};
+    if(greenMove) break;            // prefer a green — it feels like progress
+  }
+  const mv = greenMove || emptyMove;
+  if(mv){
+    state[mv.cell] = greenMove ? 1 : 2;
+    paintCell(mv.cell); updateFades(); poly[mv.cell].classList.add("hint");
+    setStatus(greenMove
+      ? `Next step: clue ${mv.clue} already has all but one of its cells decided — the outlined hex must be GREEN.`
+      : `Next step: clue ${mv.clue} is already satisfied — the outlined hex must be EMPTY (red). Empties are breadcrumbs too!`,
+      "info");
+    checkWin(true); return;
+  }
+  setStatus("No single-step forced move from the current board — re-check the empties you've marked.","info");
+};
+
+function newPuzzle(){
+  const radius=+document.getElementById("size").value;
+  const density=+document.getElementById("density").value;
+  const assist=document.getElementById("assist").value;
+  setStatus("Generating…","info");
+  setTimeout(()=>{
+    const t0=performance.now();
+    generate(radius,density,assist);
+    state=cells.map(()=>0); solved=false;
+    buildBoard();
+    const shown=clues.filter(x=>x!==null).length;
+    setStatus(`New radius-${radius} board — ${cells.length} hexes, ${shown} clues. (${Math.round(performance.now()-t0)} ms)`,"info");
+  },20);
+}
+
+newPuzzle();
+</script>
+</body>
+</html>
