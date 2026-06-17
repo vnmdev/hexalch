@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Surround Seven — Hex Fill-a-Pix</title>
+<title>The Great Work — Hex Surround Seven</title>
 <style>
   :root {
     --bg: #0e0e0e;
@@ -25,26 +25,43 @@
     display: flex; flex-direction: column; align-items: center;
     padding: 18px 12px 60px; min-height: 100vh;
   }
-  h1 { font-size: 22px; margin: 0 0 2px; letter-spacing: .5px; }
+  h1 { font-size: 23px; margin: 0 0 2px; letter-spacing: .5px; font-weight: 700; }
   h1 span { color: var(--green); }
   .sub { color: #888; font-size: 13px; margin-bottom: 16px; text-align: center; }
-  .controls {
-    display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
-    justify-content: center; margin-bottom: 14px; max-width: 780px;
-  }
-  .controls label { font-size: 13px; color: #aaa; display: flex; align-items: center; gap: 5px; }
-  select, button {
-    background: var(--panel); color: var(--text); border: 1px solid #333;
-    border-radius: 6px; padding: 7px 12px; font-size: 13px; cursor: pointer; font-family: inherit;
-  }
-  button:hover, select:hover { border-color: #555; background: #1e1e1e; }
+
+  /* ---- transmutation ladder ---- */
+  .ladder { display: flex; flex-wrap: wrap; align-items: center; justify-content: center;
+            gap: 2px; margin-bottom: 16px; max-width: 820px; }
+  .tier { display: flex; flex-direction: column; align-items: center; gap: 2px;
+          padding: 6px 9px; border-radius: 8px; border: 1px solid transparent; min-width: 64px;
+          cursor: default; transition: background .15s, border-color .15s; }
+  .tier .g { font-size: 22px; line-height: 1; font-weight: 700; }
+  .tier .tn { font-size: 11px; color: #999; }
+  .tier.locked { opacity: .4; }
+  .tier.unlocked { cursor: pointer; }
+  .tier.unlocked:hover { background: #1b1b1b; }
+  .tier.done .tn { color: #cfcfcf; }
+  .tier.current { border-color: currentColor; background: #1d1d1d; }
+  .tier.current .tn { color: #fff; }
+  .lad-arrow { color: #444; font-size: 14px; padding: 0 1px; align-self: flex-start; margin-top: 14px; }
+
+  .controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+              justify-content: center; margin-bottom: 12px; max-width: 780px; }
+  button { background: var(--panel); color: var(--text); border: 1px solid #333;
+           border-radius: 6px; padding: 7px 12px; font-size: 13px; cursor: pointer; font-family: inherit; }
+  button:hover { border-color: #555; background: #1e1e1e; }
+  button.active { border-color: var(--green); color: var(--green); }
   button.primary { background: var(--green); color: #062806; border-color: var(--green); font-weight: 600; }
   button.primary:hover { background: #6ef06e; }
+  button#transmute { background: #e8be2a; color: #2a2106; border-color: #e8be2a; font-weight: 700; display: none; }
+  button#transmute:hover { background: #f5cf45; }
+
   #status { min-height: 22px; font-size: 14px; margin-bottom: 10px; font-weight: 600; text-align: center; }
   #status.win { color: var(--green); }
   #status.err { color: var(--bad); }
   #status.info { color: #9bb; }
-  .board-wrap { background: #000; padding: 10px; border-radius: 8px; }
+
+  .board-wrap { background: #000; padding: 10px; border-radius: 8px; border: 3px solid var(--tier, #333); transition: border-color .2s; }
   svg { display: block; }
   polygon { stroke: #000; stroke-width: 1.5; cursor: pointer; transition: fill .05s; }
   polygon:hover { fill: var(--cell-hover); }
@@ -54,75 +71,53 @@
   polygon.empty:hover { fill: var(--mark-red-h); }
   polygon.bad { stroke: var(--bad); stroke-width: 3; }
   polygon.hint { stroke: #ffd24a; stroke-width: 3.5; }
-  text { pointer-events: none; font-weight: 700; fill: var(--num); user-select: none; transition: opacity .1s;
-         paint-order: stroke; stroke: #0b0b0b; stroke-width: 1.6px; stroke-linejoin: round; }
-  text.done { opacity: 0.26; }
-  .key { display: flex; flex-wrap: wrap; gap: 4px 14px; justify-content: center; align-items: center;
-         margin-bottom: 14px; max-width: 720px; font-size: 13px; }
-  .key .item { display: flex; align-items: center; gap: 6px; }
-  .key .glyph { font-size: 19px; font-weight: 700; line-height: 1; width: 20px; text-align: center; }
-  .key .nm { color: #bbb; }
-  .key .cnt { color: #777; font-variant-numeric: tabular-nums; }
-  .key .arrow { color: #555; }
-  .legend { font-size: 12px; color: #888; margin-top: 14px; max-width: 580px; text-align: center; line-height: 1.6; }
-  .navlink { margin-top: 8px; font-size: 12px; }
+  text { pointer-events: none; font-weight: 600; fill: var(--num); user-select: none; transition: opacity .1s; }
+  text.on-green { fill: var(--num-on-green); }
+  text.done { opacity: 0.28; }
+
+  .legend { font-size: 12px; color: #888; margin-top: 14px; max-width: 600px; text-align: center; line-height: 1.6; }
+  .navlink { margin-top: 10px; font-size: 12px; color: #666; }
   .navlink a { color: var(--green); }
-  details { max-width: 620px; margin-top: 20px; font-size: 13px; color: #aaa; line-height: 1.55; }
+  details { max-width: 640px; margin-top: 20px; font-size: 13px; color: #aaa; line-height: 1.55; }
   summary { cursor: pointer; color: var(--green); font-weight: 600; }
   details li { margin: 6px 0; }
 </style>
 </head>
 <body>
-  <h1>Surround <span>Seven</span></h1>
-  <div class="sub">Hex Fill-a-Pix — each number = green hexes in its 7-cell cluster (itself + its 6 neighbours)</div>
+  <h1>The Great <span>Work</span></h1>
+  <div class="sub">Hex Surround Seven — transmute Lead into Gold, one puzzle at a time. Each clue = green hexes in its 7-cell cluster.</div>
+
+  <div id="ladder" class="ladder"></div>
 
   <div class="controls">
-    <label>Size
-      <select id="size">
-        <option value="2">Small (radius 2)</option>
-        <option value="3" selected>Medium (radius 3)</option>
-        <option value="4">Large (radius 4)</option>
-        <option value="5">Huge (radius 5)</option>
-        <option value="6">Giant (radius 6)</option>
-        <option value="7">Colossal (radius 7)</option>
-      </select>
-    </label>
-    <label>Density
-      <select id="density">
-        <option value="0.4">Sparse</option>
-        <option value="0.55" selected>Balanced</option>
-        <option value="0.7">Dense</option>
-      </select>
-    </label>
-    <button class="primary" id="new">New Puzzle</button>
+    <button class="primary" id="new">New Board</button>
     <button id="check">Check</button>
-    <button id="hint">Hint</button>
+    <button id="erase">Erase</button>
     <button id="reset">Reset</button>
     <button id="solve">Show Solution</button>
-    <button id="mode">Show Symbols</button>
+    <button id="transmute"></button>
   </div>
-
-  <div id="key" class="key" title="Each clue is shown as its planetary metal, in transmutation order"></div>
 
   <div id="status"></div>
   <div class="board-wrap"><svg id="board"></svg></div>
 
   <div class="legend">
-    <strong>Left-click</strong> / drag = paint green &nbsp;•&nbsp; <strong>Right-click</strong> / drag = mark empty (red) &nbsp;•&nbsp; click again to clear<br>
-    Each clue is a number <strong>colour-coded to its planetary metal</strong> (see key above). Hit <strong>Show Symbols</strong> for the pure alchemical glyphs.<br>
-    Symbols <span style="opacity:.4">fade</span> once every cell in their cluster is decided (greens placed + rest red).<br>
-    Hexes have 6 neighbours, so clues range 0–7. Every puzzle is solvable by pure logic — no guessing.<br>
-    <em>Marking empties is essential</em> — a satisfied clue forces its remaining cells empty, which unlocks the next greens. Stuck? <strong>Next Step</strong> always finds a forced move.
+    <strong>Left-click</strong> / drag = paint green &nbsp;•&nbsp; <strong>Right-click</strong> / drag = mark empty (red) &nbsp;•&nbsp; <strong>Middle-click</strong> / drag (or <strong>Erase</strong> mode) = clear<br>
+    Clear the whole board (greens placed, rest red) to <strong>transmute</strong> up the ladder. Clues fade once their cluster is fully decided.<br>
+    Every puzzle is solvable by pure logic — no guessing required.
   </div>
-  <div class="navlink"><a href="index.html">← Square-grid version (Surround Nine)</a></div>
+  <div class="navlink">
+    <a href="index.html">← Square version (Surround Nine)</a> &nbsp;·&nbsp;
+    <a href="#" id="resetprog">Reset progress</a>
+  </div>
 
   <details>
-    <summary>How the hex puzzle is generated</summary>
+    <summary>How it works</summary>
     <ul>
-      <li><strong>Board:</strong> a hexagon of hex cells in axial coordinates. Each cell's "cluster" is itself plus its 6 axial neighbours (fewer on the rim).</li>
-      <li><strong>Random solution → clues:</strong> the grid is filled randomly; each cell's clue is the count of green cells in its 7-cell cluster.</li>
-      <li><strong>Greedy removal under a logic solver:</strong> clues are removed one by one and kept removed only if a deduction-only solver can still rebuild the whole board (rules: cluster's remaining need == its unknowns → all green; cluster already satisfied → rest empty).</li>
-      <li><strong>Result:</strong> a unique, no-guess puzzle. This is the exact same engine as the square version — only the adjacency graph changed from 8 neighbours to 6.</li>
+      <li><strong>The ladder</strong> is the classic transmutation order: Lead → Tin → Iron → Copper → Quicksilver → Silver → Gold (Saturn, Jupiter, Mars, Venus, Mercury, Moon, Sun). Solve a tier to ascend; boards grow and harden as you climb.</li>
+      <li><strong>The board</strong> is a hexagon of cells. Each clue counts greens in its 7-cell cluster (itself + 6 neighbours; fewer on the rim). Clue numbers are inked in the current metal's colour.</li>
+      <li><strong>Generation:</strong> a random solution is made, every cell's clue computed, then clues are stripped as long as a deduction-only solver can still rebuild the whole board. The result is a unique, no-guess puzzle.</li>
+      <li><strong>Progress</strong> is saved in your browser, so you resume at your current metal. Completed tiers stay unlocked — click one to replay it.</li>
     </ul>
   </details>
 
@@ -135,57 +130,46 @@ const statusEl = document.getElementById("status");
 // hex (pointy-top, axial q,r) neighbour directions
 const DIRS = [[1,0],[1,-1],[0,-1],[-1,0],[-1,1],[0,1]];
 
-// Clue value (0–7) → classic planetary metal, shown in transmutation order.
-// Colours approximate the metals' Opus Magnum appearance.
-const METALS = [
-  { n:0, name:"Salt",        sym:"\u{1F714}", color:"#d7d7d7" }, // 🜔  empty cluster
-  { n:1, name:"Lead",        sym:"♄",   color:"#7c8390" }, // ♄  Saturn
-  { n:2, name:"Tin",         sym:"♃",   color:"#b9c2cf" }, // ♃  Jupiter
-  { n:3, name:"Iron",        sym:"♂",   color:"#b56a55" }, // ♂  Mars
-  { n:4, name:"Copper",      sym:"♀",   color:"#cf7f3c" }, // ♀  Venus
-  { n:5, name:"Silver",      sym:"☽",   color:"#e6eaef" }, // ☽  Moon
-  { n:6, name:"Gold",        sym:"☉",   color:"#e8be2a" }, // ☉  Sun
-  { n:7, name:"Quicksilver", sym:"☿",   color:"#46c4ba" }, // ☿  Mercury
+// The transmutation ladder. Colours approximate each metal's Opus Magnum tint.
+const TIERS = [
+  { name:"Lead",        sym:"♄", color:"#8a8f9c", radius:2,  density:0.50 }, // Saturn
+  { name:"Tin",         sym:"♃", color:"#b9c2cf", radius:3,  density:0.50 }, // Jupiter
+  { name:"Iron",        sym:"♂", color:"#c07a63", radius:4,  density:0.50 }, // Mars
+  { name:"Copper",      sym:"♀", color:"#d08540", radius:5,  density:0.52 }, // Venus
+  { name:"Quicksilver", sym:"☿", color:"#46c4ba", radius:6,  density:0.52 }, // Mercury
+  { name:"Silver",      sym:"☽", color:"#e6eaef", radius:8,  density:0.55, attempts:4 },  // Moon
+  { name:"Gold",        sym:"☉", color:"#e8be2a", radius:10, density:0.55, attempts:14 }, // Sun
 ];
-let showSymbols = false;   // default: digits tinted by metal; toggle for pure symbols
-let curFont = 18;
 
-let R = 3;
-let cells = [];        // {q,r,idx,cx,cy} list
-let idxOf = new Map(); // "q,r" -> idx
-let adj = [];          // adj[idx] = [neighbour idx,...]
-let block = [];        // block[idx] = [idx, ...neighbours]
-let solution = [];     // 0/1 per idx
-let clues = [];        // number | null per idx
-let state = [];        // 0 unknown, 1 filled, 2 marked
+let R = 2;
+let cells = [], idxOf = new Map(), block = [];
+let solution = [], clues = [], state = [];
 let poly = [], txt = [];
 let solved = false;
+let curFont = 18;
 
-// ---------- generic helpers ----------
+// campaign progress
+let currentTier = 0;
+let completed = TIERS.map(()=>false);
+let tierColor = TIERS[0].color;
+
+// ---------- topology / solver / generator ----------
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
 
 function buildTopology(radius){
-  R = radius;
-  cells = []; idxOf = new Map();
-  for(let q=-R;q<=R;q++)
-    for(let r=-R;r<=R;r++){
-      if(Math.abs(q+r)>R) continue;          // hexagon constraint (cube s=-q-r)
-      const idx = cells.length;
-      idxOf.set(q+","+r, idx);
-      cells.push({q,r,idx});
-    }
-  adj = cells.map(()=>[]);
+  R = radius; cells = []; idxOf = new Map();
+  for(let q=-R;q<=R;q++) for(let r=-R;r<=R;r++){
+    if(Math.abs(q+r)>R) continue;
+    idxOf.set(q+","+r, cells.length);
+    cells.push({q,r,idx:cells.length});
+  }
   block = cells.map(c=>[c.idx]);
-  for(const c of cells){
-    for(const [dq,dr] of DIRS){
-      const k = idxOf.get((c.q+dq)+","+(c.r+dr));
-      if(k!==undefined){ adj[c.idx].push(k); block[c.idx].push(k); }
-    }
+  for(const c of cells) for(const [dq,dr] of DIRS){
+    const k = idxOf.get((c.q+dq)+","+(c.r+dr));
+    if(k!==undefined) block[c.idx].push(k);
   }
 }
 
-// ---------- deduction solver (generic over block[]) ----------
-// known: array of -1 unknown / 0 empty / 1 filled. Returns solved|partial|contradiction.
 function deduce(cluesArr, known){
   let prog = true;
   while(prog){
@@ -194,10 +178,7 @@ function deduce(cluesArr, known){
       const clue = cluesArr[i];
       if(clue===null) continue;
       let kf=0; const unk=[];
-      for(const j of block[i]){
-        if(known[j]===1) kf++;
-        else if(known[j]===-1) unk.push(j);
-      }
+      for(const j of block[i]){ if(known[j]===1) kf++; else if(known[j]===-1) unk.push(j); }
       const need = clue - kf;
       if(need<0 || need>unk.length) return "contradiction";
       if(unk.length===0) continue;
@@ -210,100 +191,93 @@ function deduce(cluesArr, known){
 }
 function trySolve(cluesArr){
   const known = new Array(cells.length).fill(-1);
-  const res = deduce(cluesArr, known);
-  return {res, known};
+  return { res: deduce(cluesArr, known), known };
 }
 
-// ---------- generator ----------
-// Minimal clues: remove every clue that the deduction solver still doesn't need,
-// leaving the sparsest puzzle that is still fully forced (no guessing).
-function generate(radius, density){
-  buildTopology(radius);
-  const n = cells.length;
+// Build one minimal (max-sparsity) puzzle from a fresh random solution.
+function buildOne(density, n){
   while(true){
-    solution = cells.map(()=> Math.random()<density?1:0);
-    const full = cells.map((c,i)=>{ let s=0; for(const j of block[i]) s+=solution[j]; return s; });
-    if(trySolve(full).res!=="solved") continue;       // need full board solvable
+    const sol = cells.map(()=> Math.random()<density?1:0);
+    const full = cells.map((c,i)=>{ let s=0; for(const j of block[i]) s+=sol[j]; return s; });
+    if(trySolve(full).res!=="solved") continue;
     const working = full.slice();
     for(const i of shuffle(cells.map((_,i)=>i))){
       const saved = working[i];
       working[i] = null;
       const {res, known} = trySolve(working);
       let ok = res==="solved";
-      if(ok) for(let k=0;k<n;k++) if(known[k]!==solution[k]){ ok=false; break; }
+      if(ok) for(let k=0;k<n;k++) if(known[k]!==sol[k]){ ok=false; break; }
       if(!ok) working[i] = saved;
     }
-    clues = working;
-    return;
+    return { sol, working };
   }
+}
+
+// attempts > 1: generate several candidates and keep the sparsest (fewest clues).
+function generate(radius, density, attempts){
+  buildTopology(radius);
+  const n = cells.length;
+  let best=null, bestCount=Infinity;
+  for(let a=0; a<(attempts||1); a++){
+    const cand = buildOne(density, n);
+    const cnt = cand.working.reduce((s,x)=> s + (x!==null?1:0), 0);
+    if(cnt < bestCount){ bestCount = cnt; best = cand; }
+  }
+  solution = best.sol;
+  clues = best.working;
 }
 
 // ---------- rendering ----------
 function hexPoints(cx, cy, s){
   const pts=[];
   for(let i=0;i<6;i++){
-    const ang = Math.PI/180*(60*i - 30);   // pointy-top
+    const ang = Math.PI/180*(60*i - 30);
     pts.push((cx+s*Math.cos(ang)).toFixed(2)+","+(cy+s*Math.sin(ang)).toFixed(2));
   }
   return pts.join(" ");
 }
 
 function buildBoard(){
-  const s = R<=2 ? 42 : R===3 ? 34 : R===4 ? 28 : R===5 ? 24 : R===6 ? 20 : 18;  // hex radius (center→corner)
-  curFont = (s*0.85)|0;
+  const s = R<=2 ? 50 : R===3 ? 42 : R===4 ? 36 : R===5 ? 31 : R===6 ? 27
+          : R===7 ? 24 : R===8 ? 22 : R===9 ? 20 : 18;
+  curFont = Math.max(12, (s*0.82)|0);
   const W = Math.sqrt(3)*s, H = 1.5*s;
-  // pixel positions
   let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
   for(const c of cells){
-    c.cx = W*(c.q + c.r/2);
-    c.cy = H*c.r;
+    c.cx = W*(c.q + c.r/2); c.cy = H*c.r;
     minX=Math.min(minX,c.cx); maxX=Math.max(maxX,c.cx);
     minY=Math.min(minY,c.cy); maxY=Math.max(maxY,c.cy);
   }
-  const pad = s + 4;
-  const ox = pad - minX, oy = pad - minY;
+  const pad = s + 4, ox = pad - minX, oy = pad - minY;
   const svgW = (maxX-minX)+2*pad, svgH = (maxY-minY)+2*pad;
   boardEl.setAttribute("width", svgW.toFixed(0));
   boardEl.setAttribute("height", svgH.toFixed(0));
-  boardEl.innerHTML = "";
-  poly=[]; txt=[];
+  boardEl.innerHTML = ""; poly=[]; txt=[];
+  document.documentElement.style.setProperty("--tier", tierColor);
+
   for(const c of cells){
     const cx = c.cx+ox, cy = c.cy+oy;
     const p = document.createElementNS(SVG_NS,"polygon");
     p.setAttribute("points", hexPoints(cx,cy,s-1));
-    p.setAttribute("fill", getComputedStyle(document.documentElement).getPropertyValue("--cell").trim());
+    p.setAttribute("fill", "#232323");
     p.dataset.idx = c.idx;
     boardEl.appendChild(p);
     poly[c.idx]=p;
-
     if(clues[c.idx]!==null){
-      const ti = document.createElementNS(SVG_NS,"title");   // hover tooltip = count
-      ti.textContent = `${METALS[clues[c.idx]].name} — ${clues[c.idx]}`;
+      const ti = document.createElementNS(SVG_NS,"title");
+      ti.textContent = clues[c.idx];
       p.appendChild(ti);
       const t = document.createElementNS(SVG_NS,"text");
       t.setAttribute("x",cx); t.setAttribute("y",cy+1);
       t.setAttribute("text-anchor","middle");
       t.setAttribute("dominant-baseline","central");
+      t.setAttribute("font-size", curFont);
+      t.textContent = clues[c.idx];
       boardEl.appendChild(t);
       txt[c.idx]=t;
-      labelCell(c.idx);
     }
   }
   renderCell();
-}
-
-// Render a clue cell's label as either its metal symbol (coloured) or its number.
-function labelCell(i){
-  const t = txt[i]; if(!t) return;
-  const m = METALS[clues[i]];
-  t.style.fill = m.color;                    // inline style overrides the CSS text rule
-  if(showSymbols){
-    t.textContent = m.sym;
-    t.setAttribute("font-size", Math.round(curFont*1.15));
-  } else {
-    t.textContent = clues[i];
-    t.setAttribute("font-size", curFont);
-  }
 }
 
 function paintCell(i){
@@ -311,9 +285,8 @@ function paintCell(i){
   p.classList.toggle("filled", state[i]===1);
   p.classList.toggle("empty", state[i]===2);
   p.classList.remove("bad","hint");
+  if(txt[i]) txt[i].classList.toggle("on-green", state[i]===1);
 }
-// Fade a clue only when its whole cluster is decided (no unknowns left)
-// and the green count matches — i.e. the clue is fully closed out.
 function updateFades(){
   for(let i=0;i<cells.length;i++){
     if(clues[i]===null) continue;
@@ -325,128 +298,149 @@ function updateFades(){
 function renderCell(){ for(let i=0;i<cells.length;i++) paintCell(i); updateFades(); }
 
 // ---------- interaction ----------
-let dragging=false, dragButton=0, dragApply=null;
+// button: 0 = green, 1 = clear (middle / erase mode), 2 = red empty
+let dragging=false, dragButton=0, dragApply=null, eraseMode=false;
 function applyPaint(i, button){
   if(solved) return;
-  if(button===2){ if(dragApply===null) dragApply = state[i]===2?0:2; state[i]=dragApply; }
+  if(button===1){ state[i]=0; }   // clear to blank
+  else if(button===2){ if(dragApply===null) dragApply = state[i]===2?0:2; state[i]=dragApply; }
   else { if(dragApply===null) dragApply = state[i]===1?0:1; state[i]=dragApply; }
-  paintCell(i);
-  updateFades();
+  paintCell(i); updateFades();
 }
 boardEl.addEventListener("mousedown", e=>{
   const t=e.target.closest("polygon"); if(!t) return;
-  e.preventDefault();
-  dragging=true; dragButton=e.button; dragApply=null;
-  applyPaint(+t.dataset.idx, e.button);
+  e.preventDefault(); dragging=true; dragButton = eraseMode ? 1 : e.button; dragApply=null;
+  applyPaint(+t.dataset.idx, dragButton);
 });
 boardEl.addEventListener("mouseover", e=>{
   if(!dragging) return;
   const t=e.target.closest("polygon"); if(!t) return;
   applyPaint(+t.dataset.idx, dragButton);
 });
-window.addEventListener("mouseup", ()=>{ if(dragging){ dragging=false; checkWin(true); } });
+window.addEventListener("mouseup", ()=>{ if(dragging){ dragging=false; afterMove(); } });
 boardEl.addEventListener("contextmenu", e=>e.preventDefault());
 boardEl.addEventListener("touchstart", e=>{
   const el=document.elementFromPoint(e.touches[0].clientX, e.touches[0].clientY);
   const t=el&&el.closest("polygon"); if(!t) return;
   e.preventDefault(); dragApply=null;
-  applyPaint(+t.dataset.idx, 0); checkWin(true);
+  applyPaint(+t.dataset.idx, eraseMode?1:0); afterMove();
 },{passive:false});
 
-// ---------- status / win ----------
+// ---------- win / progress ----------
 function setStatus(msg,cls){ statusEl.textContent=msg; statusEl.className=cls||""; }
-function checkWin(silent){
+function boardComplete(){
   for(let i=0;i<cells.length;i++){
-    const want = solution[i]===1 ? 1 : 2;   // green where solution is filled, red elsewhere
-    if(state[i]!==want){ if(!silent) setStatus("Not solved yet — keep going.","info"); return false; }
+    const want = solution[i]===1 ? 1 : 2;
+    if(state[i]!==want) return false;
   }
-  solved=true; setStatus("🜚 Solved! Every clue is satisfied.","win"); return true;
+  return true;
+}
+function afterMove(){ if(!solved && boardComplete()) reportWin(); }
+
+function reportWin(){
+  solved = true;
+  completed[currentTier] = true;
+  saveProgress();
+  buildLadder();
+  const t = TIERS[currentTier];
+  const tb = document.getElementById("transmute");
+  if(currentTier === TIERS.length-1){
+    setStatus("🜚 The Great Work is complete — you have made Gold!", "win");
+    tb.style.display = "none";
+  } else {
+    const next = TIERS[currentTier+1];
+    setStatus(`${t.name} perfected! Transmute to ${next.name}.`, "win");
+    tb.textContent = `Transmute → ${next.name} ${next.sym}`;
+    tb.style.display = "";
+  }
 }
 
-// ---------- order key ----------
-function populateKey(){
-  const key = document.getElementById("key");
-  key.innerHTML = "";
-  METALS.forEach((m, i) => {
-    const it = document.createElement("div");
-    it.className = "item";
-    it.innerHTML =
-      `<span class="glyph" style="color:${m.color}">${m.sym}</span>` +
-      `<span class="nm">${m.name}</span><span class="cnt">${m.n}</span>`;
-    key.appendChild(it);
-    if(i < METALS.length-1){
-      const a = document.createElement("span");
-      a.className = "arrow"; a.textContent = "›";
-      key.appendChild(a);
+// ---------- ladder ----------
+function buildLadder(){
+  const lad = document.getElementById("ladder");
+  lad.innerHTML = "";
+  TIERS.forEach((t,i)=>{
+    const unlocked = i===0 || completed[i-1];
+    const div = document.createElement("div");
+    div.className = "tier" + (i===currentTier?" current":"") + (completed[i]?" done":"") + (unlocked?" unlocked":" locked");
+    div.style.color = unlocked ? t.color : "#555";
+    div.innerHTML = `<span class="g">${t.sym}</span><span class="tn">${t.name}</span>`;
+    if(unlocked) div.onclick = ()=>{ if(i!==currentTier || solved) startTier(i); };
+    lad.appendChild(div);
+    if(i<TIERS.length-1){
+      const a=document.createElement("span"); a.className="lad-arrow"; a.textContent="›"; lad.appendChild(a);
     }
   });
 }
 
 // ---------- buttons ----------
-document.getElementById("mode").onclick = (e)=>{
-  showSymbols = !showSymbols;
-  for(let i=0;i<cells.length;i++) if(clues[i]!==null) labelCell(i);
-  e.target.textContent = showSymbols ? "Show Numbers" : "Show Symbols";
+document.getElementById("new").onclick = ()=> startTier(currentTier);
+document.getElementById("transmute").onclick = ()=>{ if(currentTier<TIERS.length-1) startTier(currentTier+1); };
+document.getElementById("erase").onclick = (e)=>{
+  eraseMode = !eraseMode;
+  e.target.classList.toggle("active", eraseMode);
+  setStatus(eraseMode ? "Erase mode on — left-click/drag clears cells." : "Erase mode off.", "info");
 };
-document.getElementById("new").onclick = ()=>newPuzzle();
-document.getElementById("reset").onclick = ()=>{ state=cells.map(()=>0); solved=false; renderCell(); setStatus("Board cleared.","info"); };
+document.getElementById("reset").onclick = ()=>{
+  if(solved) return;
+  state=cells.map(()=>0); renderCell(); setStatus("Board cleared.","info");
+};
 document.getElementById("solve").onclick = ()=>{
   for(let i=0;i<cells.length;i++) state[i]= solution[i]===1?1:2;
-  solved=true; renderCell(); setStatus("Solution revealed.","info");
+  solved=true; renderCell();
+  setStatus("Solution revealed — this won't transmute. Hit New Board to earn the tier.","info");
 };
 document.getElementById("check").onclick = ()=>{
+  if(boardComplete()){ if(!solved) reportWin(); return; }
   let bad=0;
   for(let i=0;i<cells.length;i++){
     poly[i].classList.remove("bad");
     if(state[i]===1 && solution[i]===0){ poly[i].classList.add("bad"); bad++; }
   }
-  if(checkWin(true)) return;
   setStatus(bad? `${bad} green hex(es) are wrong (outlined red).` : "No mistakes so far — but not finished.", bad?"err":"info");
 };
-document.getElementById("hint").onclick = ()=>{
-  if(solved) return;
-  const known = new Array(cells.length).fill(-1);
-  for(let i=0;i<cells.length;i++){ if(state[i]===1) known[i]=1; else if(state[i]===2) known[i]=0; }
-  let greenMove=null, emptyMove=null;
-  for(let i=0;i<cells.length;i++){
-    const clue=clues[i]; if(clue===null) continue;
-    let kf=0; const unk=[];
-    for(const j of block[i]){ if(known[j]===1) kf++; else if(known[j]===-1) unk.push(j); }
-    if(unk.length===0) continue;
-    const need=clue-kf;
-    if(need===unk.length && !greenMove) greenMove={clue,cell:unk[0]};
-    else if(need===0 && !emptyMove) emptyMove={clue,cell:unk[0]};
-    if(greenMove) break;            // prefer a green — it feels like progress
-  }
-  const mv = greenMove || emptyMove;
-  if(mv){
-    state[mv.cell] = greenMove ? 1 : 2;
-    paintCell(mv.cell); updateFades(); poly[mv.cell].classList.add("hint");
-    setStatus(greenMove
-      ? `Next step: clue ${mv.clue} already has all but one of its cells decided — the outlined hex must be GREEN.`
-      : `Next step: clue ${mv.clue} is already satisfied — the outlined hex must be EMPTY (red). Empties are breadcrumbs too!`,
-      "info");
-    checkWin(true); return;
-  }
-  setStatus("No single-step forced move from the current board — re-check the empties you've marked.","info");
+document.getElementById("resetprog").onclick = (e)=>{
+  e.preventDefault();
+  completed = TIERS.map(()=>false);
+  currentTier = 0;
+  saveProgress();
+  startTier(0);
 };
 
-function newPuzzle(){
-  const radius=+document.getElementById("size").value;
-  const density=+document.getElementById("density").value;
-  setStatus("Generating…","info");
+// ---------- start a tier ----------
+function startTier(idx){
+  currentTier = idx;
+  tierColor = TIERS[idx].color;
+  document.getElementById("transmute").style.display = "none";
+  buildLadder();
+  setStatus(`Forging ${TIERS[idx].name}…`, "info");
   setTimeout(()=>{
-    const t0=performance.now();
-    generate(radius,density);
-    state=cells.map(()=>0); solved=false;
+    const t = TIERS[idx];
+    generate(t.radius, t.density, t.attempts);
+    state = cells.map(()=>0); solved=false;
     buildBoard();
-    const shown=clues.filter(x=>x!==null).length;
-    setStatus(`New radius-${radius} board — ${cells.length} hexes, ${shown} clues. (${Math.round(performance.now()-t0)} ms)`,"info");
-  },20);
+    saveProgress();
+    const shown = clues.filter(x=>x!==null).length;
+    setStatus(`${t.name} tier — ${cells.length} hexes, ${shown} clues.`, "info");
+  }, 20);
 }
 
-populateKey();
-newPuzzle();
+// ---------- persistence ----------
+function saveProgress(){
+  try { localStorage.setItem("greatwork", JSON.stringify({ completed, current: currentTier })); } catch(e){}
+}
+function loadProgress(){
+  try {
+    const d = JSON.parse(localStorage.getItem("greatwork"));
+    if(d && Array.isArray(d.completed)){
+      completed = TIERS.map((_,i)=> !!d.completed[i]);
+      currentTier = Math.min(Math.max(0, d.current|0), TIERS.length-1);
+    }
+  } catch(e){}
+}
+
+loadProgress();
+startTier(currentTier);
 </script>
 </body>
 </html>
