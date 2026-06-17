@@ -54,9 +54,16 @@
   polygon.empty:hover { fill: var(--mark-red-h); }
   polygon.bad { stroke: var(--bad); stroke-width: 3; }
   polygon.hint { stroke: #ffd24a; stroke-width: 3.5; }
-  text { pointer-events: none; font-weight: 600; fill: var(--num); user-select: none; transition: opacity .1s; }
-  text.on-green { fill: var(--num-on-green); }
-  text.done { opacity: 0.28; }
+  text { pointer-events: none; font-weight: 700; fill: var(--num); user-select: none; transition: opacity .1s;
+         paint-order: stroke; stroke: #0b0b0b; stroke-width: 1.6px; stroke-linejoin: round; }
+  text.done { opacity: 0.26; }
+  .key { display: flex; flex-wrap: wrap; gap: 4px 14px; justify-content: center; align-items: center;
+         margin-bottom: 14px; max-width: 720px; font-size: 13px; }
+  .key .item { display: flex; align-items: center; gap: 6px; }
+  .key .glyph { font-size: 19px; font-weight: 700; line-height: 1; width: 20px; text-align: center; }
+  .key .nm { color: #bbb; }
+  .key .cnt { color: #777; font-variant-numeric: tabular-nums; }
+  .key .arrow { color: #555; }
   .legend { font-size: 12px; color: #888; margin-top: 14px; max-width: 580px; text-align: center; line-height: 1.6; }
   .navlink { margin-top: 8px; font-size: 12px; }
   .navlink a { color: var(--green); }
@@ -75,7 +82,9 @@
         <option value="2">Small (radius 2)</option>
         <option value="3" selected>Medium (radius 3)</option>
         <option value="4">Large (radius 4)</option>
-        <option value="5">Huge (radius 5, slow)</option>
+        <option value="5">Huge (radius 5)</option>
+        <option value="6">Giant (radius 6)</option>
+        <option value="7">Colossal (radius 7)</option>
       </select>
     </label>
     <label>Density
@@ -85,26 +94,23 @@
         <option value="0.7">Dense</option>
       </select>
     </label>
-    <label>Clues
-      <select id="assist">
-        <option value="gentle" selected>Gentle (more breadcrumbs)</option>
-        <option value="standard">Standard</option>
-        <option value="minimal">Minimal (hardest)</option>
-      </select>
-    </label>
     <button class="primary" id="new">New Puzzle</button>
     <button id="check">Check</button>
     <button id="hint">Hint</button>
     <button id="reset">Reset</button>
     <button id="solve">Show Solution</button>
+    <button id="mode">Show Symbols</button>
   </div>
+
+  <div id="key" class="key" title="Each clue is shown as its planetary metal, in transmutation order"></div>
 
   <div id="status"></div>
   <div class="board-wrap"><svg id="board"></svg></div>
 
   <div class="legend">
     <strong>Left-click</strong> / drag = paint green &nbsp;•&nbsp; <strong>Right-click</strong> / drag = mark empty (red) &nbsp;•&nbsp; click again to clear<br>
-    Numbers <span style="opacity:.4">fade</span> once every cell in their cluster is decided (greens placed + rest red).<br>
+    Each clue is a number <strong>colour-coded to its planetary metal</strong> (see key above). Hit <strong>Show Symbols</strong> for the pure alchemical glyphs.<br>
+    Symbols <span style="opacity:.4">fade</span> once every cell in their cluster is decided (greens placed + rest red).<br>
     Hexes have 6 neighbours, so clues range 0–7. Every puzzle is solvable by pure logic — no guessing.<br>
     <em>Marking empties is essential</em> — a satisfied clue forces its remaining cells empty, which unlocks the next greens. Stuck? <strong>Next Step</strong> always finds a forced move.
   </div>
@@ -128,6 +134,21 @@ const statusEl = document.getElementById("status");
 
 // hex (pointy-top, axial q,r) neighbour directions
 const DIRS = [[1,0],[1,-1],[0,-1],[-1,0],[-1,1],[0,1]];
+
+// Clue value (0–7) → classic planetary metal, shown in transmutation order.
+// Colours approximate the metals' Opus Magnum appearance.
+const METALS = [
+  { n:0, name:"Salt",        sym:"\u{1F714}", color:"#d7d7d7" }, // 🜔  empty cluster
+  { n:1, name:"Lead",        sym:"♄",   color:"#7c8390" }, // ♄  Saturn
+  { n:2, name:"Tin",         sym:"♃",   color:"#b9c2cf" }, // ♃  Jupiter
+  { n:3, name:"Iron",        sym:"♂",   color:"#b56a55" }, // ♂  Mars
+  { n:4, name:"Copper",      sym:"♀",   color:"#cf7f3c" }, // ♀  Venus
+  { n:5, name:"Silver",      sym:"☽",   color:"#e6eaef" }, // ☽  Moon
+  { n:6, name:"Gold",        sym:"☉",   color:"#e8be2a" }, // ☉  Sun
+  { n:7, name:"Quicksilver", sym:"☿",   color:"#46c4ba" }, // ☿  Mercury
+];
+let showSymbols = false;   // default: digits tinted by metal; toggle for pure symbols
+let curFont = 18;
 
 let R = 3;
 let cells = [];        // {q,r,idx,cx,cy} list
@@ -194,31 +215,24 @@ function trySolve(cluesArr){
 }
 
 // ---------- generator ----------
-// assist: 'gentle' | 'standard' | 'minimal' — how many *removable* clues we put back
-// to keep the breadcrumb trail dense and local.
-function generate(radius, density, assist){
+// Minimal clues: remove every clue that the deduction solver still doesn't need,
+// leaving the sparsest puzzle that is still fully forced (no guessing).
+function generate(radius, density){
   buildTopology(radius);
   const n = cells.length;
-  const keepBackFrac = assist==="gentle" ? 0.6 : assist==="standard" ? 0.3 : 0;
   while(true){
     solution = cells.map(()=> Math.random()<density?1:0);
     const full = cells.map((c,i)=>{ let s=0; for(const j of block[i]) s+=solution[j]; return s; });
     if(trySolve(full).res!=="solved") continue;       // need full board solvable
     const working = full.slice();
-    const removed = [];
     for(const i of shuffle(cells.map((_,i)=>i))){
       const saved = working[i];
       working[i] = null;
       const {res, known} = trySolve(working);
       let ok = res==="solved";
       if(ok) for(let k=0;k<n;k++) if(known[k]!==solution[k]){ ok=false; break; }
-      if(!ok) working[i] = saved; else removed.push(i);
+      if(!ok) working[i] = saved;
     }
-    // Restore a fraction of removed clues for gentler, more local breadcrumbing.
-    // (Adding clues back to a forced-solvable board can never break solvability.)
-    shuffle(removed);
-    const restore = Math.round(removed.length * keepBackFrac);
-    for(let k=0;k<restore;k++) working[removed[k]] = full[removed[k]];
     clues = working;
     return;
   }
@@ -235,8 +249,8 @@ function hexPoints(cx, cy, s){
 }
 
 function buildBoard(){
-  const s = R<=2 ? 42 : R===3 ? 34 : R===4 ? 28 : 24;  // hex radius (center→corner)
-  const fontPx = (s*0.85)|0;
+  const s = R<=2 ? 42 : R===3 ? 34 : R===4 ? 28 : R===5 ? 24 : R===6 ? 20 : 18;  // hex radius (center→corner)
+  curFont = (s*0.85)|0;
   const W = Math.sqrt(3)*s, H = 1.5*s;
   // pixel positions
   let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
@@ -263,17 +277,33 @@ function buildBoard(){
     poly[c.idx]=p;
 
     if(clues[c.idx]!==null){
+      const ti = document.createElementNS(SVG_NS,"title");   // hover tooltip = count
+      ti.textContent = `${METALS[clues[c.idx]].name} — ${clues[c.idx]}`;
+      p.appendChild(ti);
       const t = document.createElementNS(SVG_NS,"text");
       t.setAttribute("x",cx); t.setAttribute("y",cy+1);
       t.setAttribute("text-anchor","middle");
       t.setAttribute("dominant-baseline","central");
-      t.setAttribute("font-size",fontPx);
-      t.textContent = clues[c.idx];
       boardEl.appendChild(t);
       txt[c.idx]=t;
+      labelCell(c.idx);
     }
   }
   renderCell();
+}
+
+// Render a clue cell's label as either its metal symbol (coloured) or its number.
+function labelCell(i){
+  const t = txt[i]; if(!t) return;
+  const m = METALS[clues[i]];
+  t.style.fill = m.color;                    // inline style overrides the CSS text rule
+  if(showSymbols){
+    t.textContent = m.sym;
+    t.setAttribute("font-size", Math.round(curFont*1.15));
+  } else {
+    t.textContent = clues[i];
+    t.setAttribute("font-size", curFont);
+  }
 }
 
 function paintCell(i){
@@ -281,7 +311,6 @@ function paintCell(i){
   p.classList.toggle("filled", state[i]===1);
   p.classList.toggle("empty", state[i]===2);
   p.classList.remove("bad","hint");
-  if(txt[i]) txt[i].classList.toggle("on-green", state[i]===1);
 }
 // Fade a clue only when its whole cluster is decided (no unknowns left)
 // and the green count matches — i.e. the clue is fully closed out.
@@ -334,7 +363,31 @@ function checkWin(silent){
   solved=true; setStatus("🜚 Solved! Every clue is satisfied.","win"); return true;
 }
 
+// ---------- order key ----------
+function populateKey(){
+  const key = document.getElementById("key");
+  key.innerHTML = "";
+  METALS.forEach((m, i) => {
+    const it = document.createElement("div");
+    it.className = "item";
+    it.innerHTML =
+      `<span class="glyph" style="color:${m.color}">${m.sym}</span>` +
+      `<span class="nm">${m.name}</span><span class="cnt">${m.n}</span>`;
+    key.appendChild(it);
+    if(i < METALS.length-1){
+      const a = document.createElement("span");
+      a.className = "arrow"; a.textContent = "›";
+      key.appendChild(a);
+    }
+  });
+}
+
 // ---------- buttons ----------
+document.getElementById("mode").onclick = (e)=>{
+  showSymbols = !showSymbols;
+  for(let i=0;i<cells.length;i++) if(clues[i]!==null) labelCell(i);
+  e.target.textContent = showSymbols ? "Show Numbers" : "Show Symbols";
+};
 document.getElementById("new").onclick = ()=>newPuzzle();
 document.getElementById("reset").onclick = ()=>{ state=cells.map(()=>0); solved=false; renderCell(); setStatus("Board cleared.","info"); };
 document.getElementById("solve").onclick = ()=>{
@@ -381,11 +434,10 @@ document.getElementById("hint").onclick = ()=>{
 function newPuzzle(){
   const radius=+document.getElementById("size").value;
   const density=+document.getElementById("density").value;
-  const assist=document.getElementById("assist").value;
   setStatus("Generating…","info");
   setTimeout(()=>{
     const t0=performance.now();
-    generate(radius,density,assist);
+    generate(radius,density);
     state=cells.map(()=>0); solved=false;
     buildBoard();
     const shown=clues.filter(x=>x!==null).length;
@@ -393,6 +445,7 @@ function newPuzzle(){
   },20);
 }
 
+populateKey();
 newPuzzle();
 </script>
 </body>
