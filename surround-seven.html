@@ -51,6 +51,8 @@
            border-radius: 6px; padding: 7px 12px; font-size: 13px; cursor: pointer; font-family: inherit; }
   button:hover { border-color: #555; background: #1e1e1e; }
   button.active { border-color: var(--green); color: var(--green); }
+  label.speed { font-size: 13px; color: #aaa; display: flex; align-items: center; gap: 5px; cursor: pointer; }
+  label.speed input { cursor: pointer; }
   button.primary { background: var(--green); color: #062806; border-color: var(--green); font-weight: 600; }
   button.primary:hover { background: #6ef06e; }
   button#transmute { background: #e8be2a; color: #2a2106; border-color: #e8be2a; font-weight: 700; display: none; }
@@ -61,7 +63,7 @@
   #status.err { color: var(--bad); }
   #status.info { color: #9bb; }
 
-  .board-wrap { background: #000; padding: 10px; border-radius: 8px; border: 3px solid var(--tier, #333); transition: border-color .2s; }
+  .board-wrap { background: #000; padding: 10px; border-radius: 8px; border: 3px solid var(--tier, #333); transition: border-color .2s; touch-action: none; user-select: none; }
   svg { display: block; }
   polygon { stroke: #000; stroke-width: 1.5; cursor: pointer; transition: fill .05s; }
   polygon:hover { fill: var(--cell-hover); }
@@ -70,10 +72,10 @@
   polygon.empty { fill: var(--mark-red); }
   polygon.empty:hover { fill: var(--mark-red-h); }
   polygon.bad { stroke: var(--bad); stroke-width: 3; }
-  polygon.hint { stroke: #ffd24a; stroke-width: 3.5; }
-  text { pointer-events: none; font-weight: 600; fill: var(--num); user-select: none; transition: opacity .1s; }
+  text { pointer-events: none; font-weight: 600; fill: var(--num); user-select: none; transition: opacity .1s, fill .1s; }
   text.on-green { fill: var(--num-on-green); }
   text.done { opacity: 0.28; }
+  text.over { fill: var(--bad); opacity: 1; }
 
   .legend { font-size: 12px; color: #888; margin-top: 14px; max-width: 600px; text-align: center; line-height: 1.6; }
   .navlink { margin-top: 10px; font-size: 12px; color: #666; }
@@ -96,14 +98,15 @@
     <button id="reset">Reset</button>
     <button id="solve">Show Solution</button>
     <button id="transmute"></button>
+    <label class="speed"><input type="checkbox" id="speed"> Speed mode</label>
   </div>
 
   <div id="status"></div>
   <div class="board-wrap"><svg id="board"></svg></div>
 
   <div class="legend">
-    <strong>Left-click</strong> / drag = paint green &nbsp;•&nbsp; <strong>Right-click</strong> / drag = mark empty (red) &nbsp;•&nbsp; <strong>Middle-click</strong> / drag (or <strong>Erase</strong> mode) = clear<br>
-    Clear the whole board (greens placed, rest red) to <strong>transmute</strong> up the ladder. Clues fade once their cluster is fully decided.<br>
+    <strong>Left-click</strong> / drag = green &nbsp;•&nbsp; <strong>Right-click</strong> / drag = red (empty) &nbsp;•&nbsp; <strong>Middle-click</strong> or <strong>Erase</strong> = clear.<br>
+    Fill <em>every</em> hex (green or red) to <strong>transmute</strong> up the ladder. <strong>Speed mode</strong>: paint green only — leftover cells auto-fill red when a clue is satisfied, and you win once the greens are right.<br>
     Every puzzle is solvable by pure logic — no guessing required.
   </div>
   <div class="navlink">
@@ -147,6 +150,7 @@ let solution = [], clues = [], state = [];
 let poly = [], txt = [];
 let solved = false;
 let curFont = 18;
+let speedMode = false;   // false = manual reds + fill-every-cell win; true = auto-red + greens-only win
 
 // campaign progress
 let currentTier = 0;
@@ -283,27 +287,36 @@ function buildBoard(){
 function paintCell(i){
   const p = poly[i];
   p.classList.toggle("filled", state[i]===1);
-  p.classList.toggle("empty", state[i]===2);
-  p.classList.remove("bad","hint");
+  p.classList.toggle("empty", state[i]===2);   // manual reds
+  p.classList.remove("bad");
   if(txt[i]) txt[i].classList.toggle("on-green", state[i]===1);
 }
+// A clue greys out when satisfied (reddens if it has too many). In Speed mode, a satisfied
+// clue's leftover cells are provably empty, so they auto-fill red.
 function updateFades(){
+  const red = new Array(cells.length).fill(false);
   for(let i=0;i<cells.length;i++){
     if(clues[i]===null) continue;
-    let g=0, unknown=0;
-    for(const j of block[i]){ if(state[j]===1) g++; else if(state[j]===0) unknown++; }
-    txt[i].classList.toggle("done", unknown===0 && g===clues[i]);
+    let g=0;
+    for(const j of block[i]) if(state[j]===1) g++;
+    txt[i].classList.toggle("done", g===clues[i]);
+    txt[i].classList.toggle("over", g>clues[i]);
+    if(speedMode && g===clues[i]) for(const j of block[i]) if(state[j]!==1) red[j]=true;
   }
+  if(speedMode) for(let i=0;i<cells.length;i++) poly[i].classList.toggle("empty", red[i] && state[i]!==1);
 }
 function renderCell(){ for(let i=0;i<cells.length;i++) paintCell(i); updateFades(); }
 
 // ---------- interaction ----------
-// button: 0 = green, 1 = clear (middle / erase mode), 2 = red empty
+// button: 0 = green, 1 = clear (middle / erase), 2 = red empty (manual mode only)
 let dragging=false, dragButton=0, dragApply=null, eraseMode=false;
 function applyPaint(i, button){
   if(solved) return;
-  if(button===1){ state[i]=0; }   // clear to blank
-  else if(button===2){ if(dragApply===null) dragApply = state[i]===2?0:2; state[i]=dragApply; }
+  if(button===1){ state[i]=0; }
+  else if(button===2){
+    if(speedMode){ state[i]=0; }   // right-click clears in speed mode
+    else { if(dragApply===null) dragApply = state[i]===2?0:2; state[i]=dragApply; }
+  }
   else { if(dragApply===null) dragApply = state[i]===1?0:1; state[i]=dragApply; }
   paintCell(i); updateFades();
 }
@@ -319,19 +332,28 @@ boardEl.addEventListener("mouseover", e=>{
 });
 window.addEventListener("mouseup", ()=>{ if(dragging){ dragging=false; afterMove(); } });
 boardEl.addEventListener("contextmenu", e=>e.preventDefault());
+function touchPoly(touch){
+  const el=document.elementFromPoint(touch.clientX, touch.clientY);
+  return el && el.closest("polygon");
+}
 boardEl.addEventListener("touchstart", e=>{
-  const el=document.elementFromPoint(e.touches[0].clientX, e.touches[0].clientY);
-  const t=el&&el.closest("polygon"); if(!t) return;
+  const t=touchPoly(e.touches[0]); if(!t) return;
   e.preventDefault(); dragApply=null;
-  applyPaint(+t.dataset.idx, eraseMode?1:0); afterMove();
+  applyPaint(+t.dataset.idx, eraseMode?1:0);
 },{passive:false});
+boardEl.addEventListener("touchmove", e=>{
+  const t=touchPoly(e.touches[0]); if(!t) return;
+  e.preventDefault();
+  applyPaint(+t.dataset.idx, eraseMode?1:0);
+},{passive:false});
+boardEl.addEventListener("touchend", ()=> afterMove());
 
 // ---------- win / progress ----------
 function setStatus(msg,cls){ statusEl.textContent=msg; statusEl.className=cls||""; }
 function boardComplete(){
   for(let i=0;i<cells.length;i++){
-    const want = solution[i]===1 ? 1 : 2;
-    if(state[i]!==want) return false;
+    if(speedMode){ if((state[i]===1?1:0) !== solution[i]) return false; }   // greens only
+    else { const want = solution[i]===1 ? 1 : 2; if(state[i]!==want) return false; } // every cell red/green
   }
   return true;
 }
@@ -381,12 +403,19 @@ document.getElementById("erase").onclick = (e)=>{
   e.target.classList.toggle("active", eraseMode);
   setStatus(eraseMode ? "Erase mode on — left-click/drag clears cells." : "Erase mode off.", "info");
 };
+document.getElementById("speed").onchange = (e)=>{
+  speedMode = e.target.checked;
+  if(speedMode) for(let i=0;i<cells.length;i++) if(state[i]===2) state[i]=0;  // drop manual reds
+  solved=false; renderCell(); afterMove(); saveProgress();
+  setStatus(speedMode ? "Speed mode on — leftovers auto-fill red; win on correct greens."
+                      : "Manual mode — mark reds yourself; fill every hex to transmute.","info");
+};
 document.getElementById("reset").onclick = ()=>{
   if(solved) return;
   state=cells.map(()=>0); renderCell(); setStatus("Board cleared.","info");
 };
 document.getElementById("solve").onclick = ()=>{
-  for(let i=0;i<cells.length;i++) state[i]= solution[i]===1?1:2;
+  for(let i=0;i<cells.length;i++) state[i]= solution[i]===1 ? 1 : (speedMode ? 0 : 2);
   solved=true; renderCell();
   setStatus("Solution revealed — this won't transmute. Hit New Board to earn the tier.","info");
 };
@@ -427,7 +456,7 @@ function startTier(idx){
 
 // ---------- persistence ----------
 function saveProgress(){
-  try { localStorage.setItem("greatwork", JSON.stringify({ completed, current: currentTier })); } catch(e){}
+  try { localStorage.setItem("greatwork", JSON.stringify({ completed, current: currentTier, speed: speedMode })); } catch(e){}
 }
 function loadProgress(){
   try {
@@ -435,8 +464,10 @@ function loadProgress(){
     if(d && Array.isArray(d.completed)){
       completed = TIERS.map((_,i)=> !!d.completed[i]);
       currentTier = Math.min(Math.max(0, d.current|0), TIERS.length-1);
+      speedMode = !!d.speed;
     }
   } catch(e){}
+  document.getElementById("speed").checked = speedMode;
 }
 
 loadProgress();

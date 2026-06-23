@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Surround Nine — Fill-a-Pix Clone</title>
+<style>
+  :root {
+    --bg: #0e0e0e;
+    --panel: #161616;
+    --cell: #1f1f1f;
+    --cell-hover: #2a2a2a;
+    --green: #5ce05c;
+    --mark-red: #7a2f2f;
+    --mark-red-h: #934040;
+    --text: #d8d8d8;
+    --num: #cfcfcf;
+    --num-on-green: #0b3d0b;
+    --bad: #e0564c;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    display: flex; flex-direction: column; align-items: center;
+    padding: 18px 12px 60px; min-height: 100vh;
+  }
+  h1 { font-size: 22px; margin: 0 0 2px; letter-spacing: .5px; }
+  h1 span { color: var(--green); }
+  .sub { color: #888; font-size: 13px; margin-bottom: 16px; text-align: center; }
+  .controls {
+    display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+    justify-content: center; margin-bottom: 14px; max-width: 760px;
+  }
+  .controls label { font-size: 13px; color: #aaa; display: flex; align-items: center; gap: 5px; }
+  select, button {
+    background: var(--panel); color: var(--text); border: 1px solid #333;
+    border-radius: 6px; padding: 7px 12px; font-size: 13px; cursor: pointer; font-family: inherit;
+  }
+  button:hover, select:hover { border-color: #555; background: #1e1e1e; }
+  button.primary { background: var(--green); color: #062806; border-color: var(--green); font-weight: 600; }
+  button.primary:hover { background: #6ef06e; }
+  button.active { border-color: var(--green); color: var(--green); }
+  label.speed { font-size: 13px; color: #aaa; display: flex; align-items: center; gap: 5px; cursor: pointer; }
+  label.speed input { cursor: pointer; }
+  #status { min-height: 22px; font-size: 14px; margin-bottom: 10px; font-weight: 600; }
+  #status.win { color: var(--green); }
+  #status.err { color: var(--bad); }
+  #status.info { color: #9bb; }
+  .board-wrap { background: #000; padding: 3px; border-radius: 4px; line-height: 0; user-select: none; touch-action: none; }
+  #board { display: grid; gap: 1px; background: #000; }
+  .c {
+    background: var(--cell); position: relative; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--num); font-weight: 600;
+  }
+  .c:hover { background: var(--cell-hover); }
+  .c.filled { background: var(--green); color: var(--num-on-green); }
+  .c.filled:hover { background: #6ef06e; }
+  .c.marked { background: var(--mark-red); }
+  .c.marked:hover { background: var(--mark-red-h); }
+  .c.bad { box-shadow: inset 0 0 0 2px var(--bad); }
+  .c .n { line-height: 1; transition: opacity .1s, color .1s; }
+  .c.done .n { opacity: 0.26; }
+  .c.over .n { color: var(--bad); opacity: 1; }
+  .legend { font-size: 12px; color: #888; margin-top: 14px; max-width: 560px; text-align: center; line-height: 1.6; }
+  .navlink { margin-top: 10px; font-size: 12px; color: #666; }
+  .navlink a { color: var(--green); }
+  details { max-width: 620px; margin-top: 20px; font-size: 13px; color: #aaa; line-height: 1.55; }
+  summary { cursor: pointer; color: var(--green); font-weight: 600; }
+  details p, details li { margin: 8px 0; }
+</style>
+</head>
+<body>
+  <h1>Surround <span>Nine</span></h1>
+  <div class="sub">A Fill-a-Pix clone — each number = green cells in its 3×3 block (itself + 8 neighbours)</div>
+
+  <div class="controls">
+    <label>Size
+      <select id="size">
+        <option value="7">7 × 7 (easy)</option>
+        <option value="10" selected>10 × 10</option>
+        <option value="15">15 × 15</option>
+        <option value="20">20 × 20 (slow gen)</option>
+      </select>
+    </label>
+    <label>Density
+      <select id="density">
+        <option value="0.4">Sparse</option>
+        <option value="0.55" selected>Balanced</option>
+        <option value="0.7">Dense</option>
+      </select>
+    </label>
+    <button class="primary" id="new">New Puzzle</button>
+    <button id="check">Check</button>
+    <button id="erase">Erase</button>
+    <button id="reset">Reset</button>
+    <button id="solve">Show Solution</button>
+    <label class="speed"><input type="checkbox" id="speed"> Speed mode</label>
+  </div>
+
+  <div id="status"></div>
+  <div class="board-wrap"><div id="board"></div></div>
+
+  <div class="legend">
+    <strong>Left-click</strong> / drag = green &nbsp;•&nbsp; <strong>Right-click</strong> / drag = red (empty) &nbsp;•&nbsp; <strong>Middle-click</strong> or <strong>Erase</strong> = clear.<br>
+    Fill <em>every</em> cell (green or red) to win. <strong>Speed mode</strong>: paint green only — leftovers auto-fill red when a clue is satisfied, and you win once the greens are right.
+  </div>
+  <div class="navlink"><a href="surround-seven.html">→ Hex version (The Great Work)</a></div>
+
+  <details>
+    <summary>How puzzle generation works (the logic)</summary>
+    <p><strong>1. Random solution.</strong> A grid is filled randomly (each cell green/empty by the chosen density). This is the secret answer.</p>
+    <p><strong>2. Compute every clue.</strong> For each cell, count green cells in its 3×3 block (including itself). That number is its clue.</p>
+    <p><strong>3. Greedy clue removal under a logic solver.</strong> Clues are removed one by one and kept removed only while a deduction-only solver can still rebuild the whole grid. Because complete forced deduction admits exactly one answer, the result is <strong>unique and solvable without guessing</strong>.</p>
+  </details>
+
+<script>
+"use strict";
+
+const boardEl = document.getElementById("board");
+const statusEl = document.getElementById("status");
+
+let N = 10;          // grid dimension
+let solution = [];   // N x N, 0/1 (1 = green)
+let clues = [];      // N x N, number or null
+let state = [];      // N x N, 0 blank, 1 green, 2 red (manual mode)
+let cellEls = [];    // DOM refs
+let solved = false;
+let speedMode = false;  // false = manual reds + fill-every-cell win; true = auto-red + greens-only win
+
+// ---------- helpers ----------
+function makeGrid(n, val) {
+  return Array.from({ length: n }, () => Array.from({ length: n }, () =>
+    typeof val === "function" ? val() : val));
+}
+function neighbors(r, c, n) {
+  const out = [];
+  for (let dr = -1; dr <= 1; dr++)
+    for (let dc = -1; dc <= 1; dc++) {
+      const nr = r + dr, nc = c + dc;
+      if (nr >= 0 && nr < n && nc >= 0 && nc < n) out.push([nr, nc]);
+    }
+  return out;
+}
+function shuffle(a) {
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+// ---------- deduction solver ----------
+function deduce(cluesGrid, known) {
+  const n = known.length;
+  let progress = true;
+  while (progress) {
+    progress = false;
+    for (let r = 0; r < n; r++) {
+      for (let c = 0; c < n; c++) {
+        const clue = cluesGrid[r][c];
+        if (clue === null) continue;
+        const nb = neighbors(r, c, n);
+        let kf = 0, unk = [];
+        for (const [nr, nc] of nb) {
+          if (known[nr][nc] === 1) kf++;
+          else if (known[nr][nc] === -1) unk.push([nr, nc]);
+        }
+        const need = clue - kf;
+        if (need < 0 || need > unk.length) return "contradiction";
+        if (unk.length === 0) continue;
+        if (need === 0) {
+          for (const [nr, nc] of unk) known[nr][nc] = 0;
+          progress = true;
+        } else if (need === unk.length) {
+          for (const [nr, nc] of unk) known[nr][nc] = 1;
+          progress = true;
+        }
+      }
+    }
+  }
+  for (let r = 0; r < n; r++)
+    for (let c = 0; c < n; c++)
+      if (known[r][c] === -1) return "partial";
+  return "solved";
+}
+
+function trySolve(cluesGrid) {
+  const n = cluesGrid.length;
+  const known = makeGrid(n, -1);
+  const res = deduce(cluesGrid, known);
+  return { res, known };
+}
+
+// ---------- generator ----------
+function generate(n, density) {
+  N = n;
+  while (true) {
+    solution = makeGrid(n, () => (Math.random() < density ? 1 : 0));
+    const full = makeGrid(n, 0);
+    for (let r = 0; r < n; r++)
+      for (let c = 0; c < n; c++) {
+        let cnt = 0;
+        for (const [nr, nc] of neighbors(r, c, n)) cnt += solution[nr][nc];
+        full[r][c] = cnt;
+      }
+    if (trySolve(full).res !== "solved") continue;
+
+    const working = full.map(row => row.slice());
+    const order = shuffle(
+      [].concat(...Array.from({ length: n }, (_, r) =>
+        Array.from({ length: n }, (_, c) => [r, c])))
+    );
+    for (const [r, c] of order) {
+      const saved = working[r][c];
+      working[r][c] = null;
+      const { res, known } = trySolve(working);
+      let ok = res === "solved";
+      if (ok) {
+        for (let i = 0; i < n && ok; i++)
+          for (let j = 0; j < n; j++)
+            if (known[i][j] !== solution[i][j]) { ok = false; break; }
+      }
+      if (!ok) working[r][c] = saved;
+    }
+    clues = working;
+    return;
+  }
+}
+
+// ---------- rendering ----------
+function buildBoard() {
+  const px = N <= 7 ? 44 : N <= 10 ? 38 : N <= 15 ? 30 : 24;
+  boardEl.style.gridTemplateColumns = `repeat(${N}, ${px}px)`;
+  boardEl.style.fontSize = (px * 0.45) + "px";
+  boardEl.innerHTML = "";
+  cellEls = makeGrid(N, null);
+  for (let r = 0; r < N; r++) {
+    for (let c = 0; c < N; c++) {
+      const d = document.createElement("div");
+      d.className = "c";
+      d.style.width = px + "px";
+      d.style.height = px + "px";
+      if (clues[r][c] !== null) {
+        const span = document.createElement("span");
+        span.className = "n";
+        span.textContent = clues[r][c];
+        d.appendChild(span);
+        d.classList.add("clue");
+      }
+      d.dataset.r = r; d.dataset.c = c;
+      boardEl.appendChild(d);
+      cellEls[r][c] = d;
+    }
+  }
+  renderState();
+}
+
+// A clue greys out when satisfied (reddens if too many). In Speed mode, a satisfied clue's
+// leftover cells are provably empty, so they auto-fill red.
+function updateClues() {
+  const red = makeGrid(N, false);
+  for (let r = 0; r < N; r++)
+    for (let c = 0; c < N; c++) {
+      if (clues[r][c] === null) continue;
+      let g = 0;
+      for (const [nr, nc] of neighbors(r, c, N)) if (state[nr][nc] === 1) g++;
+      cellEls[r][c].classList.toggle("done", g === clues[r][c]);
+      cellEls[r][c].classList.toggle("over", g > clues[r][c]);
+      if (speedMode && g === clues[r][c])
+        for (const [nr, nc] of neighbors(r, c, N)) if (state[nr][nc] !== 1) red[nr][nc] = true;
+    }
+  if (speedMode)
+    for (let r = 0; r < N; r++)
+      for (let c = 0; c < N; c++)
+        cellEls[r][c].classList.toggle("marked", red[r][c] && state[r][c] !== 1);
+}
+
+function paintCellEl(r, c) {
+  const d = cellEls[r][c];
+  d.classList.toggle("filled", state[r][c] === 1);
+  d.classList.toggle("marked", state[r][c] === 2);   // manual reds
+  d.classList.remove("bad");
+}
+function renderState() {
+  for (let r = 0; r < N; r++)
+    for (let c = 0; c < N; c++) paintCellEl(r, c);
+  updateClues();
+}
+
+// ---------- interaction ----------
+// button: 0 = green, 1 = clear (middle / erase), 2 = red empty (manual mode only)
+let dragging = false, dragButton = 0, dragApply = null, eraseMode = false;
+
+function applyPaint(r, c, button) {
+  if (solved) return;
+  if (button === 1) { state[r][c] = 0; }
+  else if (button === 2) {
+    if (speedMode) { state[r][c] = 0; }   // right-click clears in speed mode
+    else { if (dragApply === null) dragApply = state[r][c] === 2 ? 0 : 2; state[r][c] = dragApply; }
+  }
+  else { if (dragApply === null) dragApply = state[r][c] === 1 ? 0 : 1; state[r][c] = dragApply; }
+  paintCellEl(r, c);
+  updateClues();
+}
+
+boardEl.addEventListener("mousedown", e => {
+  const t = e.target.closest(".c");
+  if (!t) return;
+  e.preventDefault();
+  dragging = true; dragButton = eraseMode ? 1 : e.button; dragApply = null;
+  applyPaint(+t.dataset.r, +t.dataset.c, dragButton);
+});
+boardEl.addEventListener("mouseover", e => {
+  if (!dragging) return;
+  const t = e.target.closest(".c");
+  if (!t) return;
+  applyPaint(+t.dataset.r, +t.dataset.c, dragButton);
+});
+window.addEventListener("mouseup", () => {
+  if (dragging) { dragging = false; checkWin(true); }
+});
+boardEl.addEventListener("contextmenu", e => e.preventDefault());
+
+// touch: tap or swipe to paint
+function touchCell(touch) {
+  const el = document.elementFromPoint(touch.clientX, touch.clientY);
+  return el && el.closest(".c");
+}
+boardEl.addEventListener("touchstart", e => {
+  const cell = touchCell(e.touches[0]);
+  if (!cell) return;
+  e.preventDefault();
+  dragApply = null;
+  applyPaint(+cell.dataset.r, +cell.dataset.c, eraseMode ? 1 : 0);
+}, { passive: false });
+boardEl.addEventListener("touchmove", e => {
+  const cell = touchCell(e.touches[0]);
+  if (!cell) return;
+  e.preventDefault();
+  applyPaint(+cell.dataset.r, +cell.dataset.c, eraseMode ? 1 : 0);
+}, { passive: false });
+boardEl.addEventListener("touchend", () => checkWin(true));
+
+// ---------- buttons / win ----------
+function setStatus(msg, cls) { statusEl.textContent = msg; statusEl.className = cls || ""; }
+
+function checkWin(silent) {
+  for (let r = 0; r < N; r++)
+    for (let c = 0; c < N; c++) {
+      if (speedMode) {
+        if ((state[r][c] === 1 ? 1 : 0) !== solution[r][c]) {
+          if (!silent) setStatus("Not solved yet — keep going.", "info");
+          return false;
+        }
+      } else {
+        const want = solution[r][c] === 1 ? 1 : 2;   // every cell must be green or red
+        if (state[r][c] !== want) {
+          if (!silent) setStatus("Not solved yet — keep going.", "info");
+          return false;
+        }
+      }
+    }
+  solved = true;
+  setStatus("🎉 Solved! Every clue is satisfied.", "win");
+  return true;
+}
+
+document.getElementById("new").onclick = () => newPuzzle();
+document.getElementById("erase").onclick = (e) => {
+  eraseMode = !eraseMode;
+  e.target.classList.toggle("active", eraseMode);
+  setStatus(eraseMode ? "Erase mode on — click/drag clears cells." : "Erase mode off.", "info");
+};
+document.getElementById("speed").onchange = (e) => {
+  speedMode = e.target.checked;
+  if (speedMode) for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) if (state[r][c] === 2) state[r][c] = 0;
+  solved = false; renderState();
+  setStatus(speedMode ? "Speed mode on — leftovers auto-fill red; win on correct greens."
+                      : "Manual mode — mark reds yourself; fill every cell to win.", "info");
+};
+document.getElementById("reset").onclick = () => {
+  if (solved) return;
+  state = makeGrid(N, 0); renderState(); setStatus("Board cleared.", "info");
+};
+document.getElementById("solve").onclick = () => {
+  for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) state[r][c] = solution[r][c] === 1 ? 1 : (speedMode ? 0 : 2);
+  solved = true; renderState(); setStatus("Solution revealed.", "info");
+};
+document.getElementById("check").onclick = () => {
+  if (checkWin(true)) return;
+  let bad = 0;
+  for (let r = 0; r < N; r++)
+    for (let c = 0; c < N; c++) {
+      cellEls[r][c].classList.remove("bad");
+      if (state[r][c] === 1 && solution[r][c] === 0) { cellEls[r][c].classList.add("bad"); bad++; }
+    }
+  setStatus(bad ? `${bad} green cell(s) are wrong (outlined red).` : "No mistakes so far — but not finished.", bad ? "err" : "info");
+};
+
+function newPuzzle() {
+  N = +document.getElementById("size").value;
+  const density = +document.getElementById("density").value;
+  setStatus("Generating…", "info");
+  setTimeout(() => {
+    const t0 = performance.now();
+    generate(N, density);
+    state = makeGrid(N, 0);
+    solved = false;
+    buildBoard();
+    const shown = clues.flat().filter(x => x !== null).length;
+    setStatus(`New ${N}×${N} puzzle — ${shown} clues. (${Math.round(performance.now() - t0)} ms)`, "info");
+  }, 20);
+}
+
+newPuzzle();
+</script>
+</body>
+</html>
