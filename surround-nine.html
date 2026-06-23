@@ -82,6 +82,7 @@
         <option value="10" selected>10 × 10</option>
         <option value="15">15 × 15</option>
         <option value="20">20 × 20 (slow gen)</option>
+        <option value="30">30 × 30 (slow gen)</option>
       </select>
     </label>
     <label>Density
@@ -231,7 +232,7 @@ function generate(n, density) {
 
 // ---------- rendering ----------
 function buildBoard() {
-  const px = N <= 7 ? 44 : N <= 10 ? 38 : N <= 15 ? 30 : 24;
+  const px = N <= 7 ? 44 : N <= 10 ? 38 : N <= 15 ? 30 : N <= 20 ? 24 : 18;
   boardEl.style.gridTemplateColumns = `repeat(${N}, ${px}px)`;
   boardEl.style.fontSize = (px * 0.45) + "px";
   boardEl.innerHTML = "";
