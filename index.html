@@ -48,9 +48,14 @@
   .controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
               justify-content: center; margin-bottom: 12px; max-width: 780px; }
   button { background: var(--panel); color: var(--text); border: 1px solid #333;
-           border-radius: 6px; padding: 7px 12px; font-size: 13px; cursor: pointer; font-family: inherit; }
+           border-radius: 6px; padding: 8px 12px; font-size: 13px; cursor: pointer; font-family: inherit;
+           touch-action: manipulation; }
   button:hover { border-color: #555; background: #1e1e1e; }
   button.active { border-color: var(--green); color: var(--green); }
+  .tools { display: inline-flex; gap: 4px; }
+  #tGreen.on { border-color: var(--green); color: var(--green); }
+  #tRed.on { border-color: var(--mark-red-h); color: #e89a9a; }
+  #tErase.on { border-color: #999; color: #ddd; }
   label.speed { font-size: 13px; color: #aaa; display: flex; align-items: center; gap: 5px; cursor: pointer; }
   label.speed input { cursor: pointer; }
   button.primary { background: var(--green); color: #062806; border-color: var(--green); font-weight: 600; }
@@ -63,8 +68,8 @@
   #status.err { color: var(--bad); }
   #status.info { color: #9bb; }
 
-  .board-wrap { background: #000; padding: 10px; border-radius: 8px; border: 3px solid var(--tier, #333); transition: border-color .2s; touch-action: none; user-select: none; }
-  svg { display: block; }
+  .board-wrap { background: #000; padding: 10px; border-radius: 8px; border: 3px solid var(--tier, #333); transition: border-color .2s; touch-action: none; user-select: none; max-width: 100%; }
+  svg { display: block; height: auto; }
   polygon { stroke: #000; stroke-width: 1.5; cursor: pointer; transition: fill .05s; }
   polygon:hover { fill: var(--cell-hover); }
   polygon.filled { fill: var(--green); }
@@ -83,6 +88,21 @@
   details { max-width: 640px; margin-top: 20px; font-size: 13px; color: #aaa; line-height: 1.55; }
   summary { cursor: pointer; color: var(--green); font-weight: 600; }
   details li { margin: 6px 0; }
+
+  @media (max-width: 600px) {
+    body { padding: 12px 8px 50px; }
+    h1 { font-size: 20px; }
+    .sub { font-size: 12px; margin-bottom: 10px; }
+    .ladder { gap: 1px; margin-bottom: 12px; }
+    .tier { min-width: 42px; padding: 4px 4px; }
+    .tier .g { font-size: 18px; }
+    .tier .tn { font-size: 9px; }
+    .lad-arrow { display: none; }
+    .controls { gap: 6px; margin-bottom: 10px; }
+    button { padding: 9px 11px; }
+    .board-wrap { padding: 6px; }
+    .legend { font-size: 11px; }
+  }
 </style>
 </head>
 <body>
@@ -92,9 +112,13 @@
   <div id="ladder" class="ladder"></div>
 
   <div class="controls">
+    <span class="tools">
+      <button id="tGreen" class="on">🟩</button>
+      <button id="tRed">🟥</button>
+      <button id="tErase">⬜</button>
+    </span>
     <button class="primary" id="new">New Board</button>
     <button id="check">Check</button>
-    <button id="erase">Erase</button>
     <button id="reset">Reset</button>
     <button id="solve">Show Solution</button>
     <button id="transmute"></button>
@@ -105,7 +129,7 @@
   <div class="board-wrap"><svg id="board"></svg></div>
 
   <div class="legend">
-    <strong>Left-click</strong> / drag = green &nbsp;•&nbsp; <strong>Right-click</strong> / drag = red (empty) &nbsp;•&nbsp; <strong>Middle-click</strong> or <strong>Erase</strong> = clear.<br>
+    Pick a tool (🟩 🟥 ⬜), then <strong>tap / click / drag</strong> to paint. On desktop: <strong>right-click</strong> = red, <strong>middle-click</strong> = clear.<br>
     Fill <em>every</em> hex (green or red) to <strong>transmute</strong> up the ladder. <strong>Speed mode</strong>: paint green only — leftover cells auto-fill red when a clue is satisfied, and you win once the greens are right.<br>
     Every puzzle is solvable by pure logic — no guessing required.
   </div>
@@ -254,8 +278,10 @@ function buildBoard(){
   }
   const pad = s + 4, ox = pad - minX, oy = pad - minY;
   const svgW = (maxX-minX)+2*pad, svgH = (maxY-minY)+2*pad;
-  boardEl.setAttribute("width", svgW.toFixed(0));
-  boardEl.setAttribute("height", svgH.toFixed(0));
+  // Responsive: scale via viewBox, cap at natural size, shrink to fit narrow screens.
+  boardEl.setAttribute("viewBox", `0 0 ${svgW.toFixed(1)} ${svgH.toFixed(1)}`);
+  boardEl.removeAttribute("width"); boardEl.removeAttribute("height");
+  boardEl.style.width = `min(calc(100vw - 46px), ${svgW.toFixed(0)}px)`;
   boardEl.innerHTML = ""; poly=[]; txt=[];
   document.documentElement.style.setProperty("--tier", tierColor);
 
@@ -308,27 +334,30 @@ function updateFades(){
 function renderCell(){ for(let i=0;i<cells.length;i++) paintCell(i); updateFades(); }
 
 // ---------- interaction ----------
-// button: 0 = green, 1 = clear (middle / erase), 2 = red empty (manual mode only)
-let dragging=false, dragButton=0, dragApply=null, eraseMode=false;
+// tool = green | red | erase (for tap/left-click/drag). button: 0 = tool, 1 = clear, 2 = red.
+let dragging=false, dragApply=null, tool="green";
+function firstValue(i, button){
+  if(button===1) return 0;                                  // middle = clear
+  if(button===2) return speedMode ? 0 : (state[i]===2?0:2);  // right = red (or clear in speed)
+  if(tool==="erase") return 0;
+  if(tool==="red" && !speedMode) return state[i]===2?0:2;
+  return state[i]===1?0:1;                                   // green (also red-tool in speed)
+}
 function applyPaint(i, button){
   if(solved) return;
-  if(button===1){ state[i]=0; }
-  else if(button===2){
-    if(speedMode){ state[i]=0; }   // right-click clears in speed mode
-    else { if(dragApply===null) dragApply = state[i]===2?0:2; state[i]=dragApply; }
-  }
-  else { if(dragApply===null) dragApply = state[i]===1?0:1; state[i]=dragApply; }
+  if(dragApply===null) dragApply = firstValue(i, button);
+  state[i] = dragApply;
   paintCell(i); updateFades();
 }
 boardEl.addEventListener("mousedown", e=>{
   const t=e.target.closest("polygon"); if(!t) return;
-  e.preventDefault(); dragging=true; dragButton = eraseMode ? 1 : e.button; dragApply=null;
-  applyPaint(+t.dataset.idx, dragButton);
+  e.preventDefault(); dragging=true; dragApply=null;
+  applyPaint(+t.dataset.idx, e.button);
 });
 boardEl.addEventListener("mouseover", e=>{
   if(!dragging) return;
   const t=e.target.closest("polygon"); if(!t) return;
-  applyPaint(+t.dataset.idx, dragButton);
+  applyPaint(+t.dataset.idx, 0);
 });
 window.addEventListener("mouseup", ()=>{ if(dragging){ dragging=false; afterMove(); } });
 boardEl.addEventListener("contextmenu", e=>e.preventDefault());
@@ -339,14 +368,25 @@ function touchPoly(touch){
 boardEl.addEventListener("touchstart", e=>{
   const t=touchPoly(e.touches[0]); if(!t) return;
   e.preventDefault(); dragApply=null;
-  applyPaint(+t.dataset.idx, eraseMode?1:0);
+  applyPaint(+t.dataset.idx, 0);
 },{passive:false});
 boardEl.addEventListener("touchmove", e=>{
   const t=touchPoly(e.touches[0]); if(!t) return;
   e.preventDefault();
-  applyPaint(+t.dataset.idx, eraseMode?1:0);
+  applyPaint(+t.dataset.idx, 0);
 },{passive:false});
 boardEl.addEventListener("touchend", ()=> afterMove());
+
+// tool selector
+function setTool(t){
+  tool = t;
+  document.getElementById("tGreen").classList.toggle("on", t==="green");
+  document.getElementById("tRed").classList.toggle("on", t==="red");
+  document.getElementById("tErase").classList.toggle("on", t==="erase");
+}
+document.getElementById("tGreen").onclick = ()=> setTool("green");
+document.getElementById("tRed").onclick   = ()=> setTool("red");
+document.getElementById("tErase").onclick = ()=> setTool("erase");
 
 // ---------- win / progress ----------
 function setStatus(msg,cls){ statusEl.textContent=msg; statusEl.className=cls||""; }
@@ -398,14 +438,9 @@ function buildLadder(){
 // ---------- buttons ----------
 document.getElementById("new").onclick = ()=> startTier(currentTier);
 document.getElementById("transmute").onclick = ()=>{ if(currentTier<TIERS.length-1) startTier(currentTier+1); };
-document.getElementById("erase").onclick = (e)=>{
-  eraseMode = !eraseMode;
-  e.target.classList.toggle("active", eraseMode);
-  setStatus(eraseMode ? "Erase mode on — left-click/drag clears cells." : "Erase mode off.", "info");
-};
 document.getElementById("speed").onchange = (e)=>{
   speedMode = e.target.checked;
-  if(speedMode) for(let i=0;i<cells.length;i++) if(state[i]===2) state[i]=0;  // drop manual reds
+  if(speedMode){ for(let i=0;i<cells.length;i++) if(state[i]===2) state[i]=0; setTool("green"); }  // drop manual reds
   solved=false; renderCell(); afterMove(); saveProgress();
   setStatus(speedMode ? "Speed mode on — leftovers auto-fill red; win on correct greens."
                       : "Manual mode — mark reds yourself; fill every hex to transmute.","info");
