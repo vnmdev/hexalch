@@ -2,6 +2,20 @@
 
 > Reconstructed examiner-style on 2026-06-23 — every line traced and explained from scratch, no spoonfeeding. **This is the *map*, not a tutorial**: it exists to jog recall and to be the reference when rebuilding the engine in Godot. Line numbers are for `surround-seven.html`.
 
+## Current `index.html` divergence (2026-07-26)
+
+`surround-seven.html` remains the historical single-clue reference described below. The campaign in `index.html` now uses mixed exact-count clue definitions shaped as `{count, kind, axis, cells}`:
+
+- **Surround:** self + immediate neighbours.
+- **Halo `○`:** immediate neighbours, excluding self.
+- **Spear `╲ — ╱`:** the complete board axis through the clue.
+- **Flow `→`:** the fixed ray ahead of the clue, starting at the next cell.
+- **Mirror `◇`:** the surrounding cluster reflected through the board centre.
+
+The deduction rules are unchanged: they operate on each definition's `cells` scope instead of always using `block[i]`. Greedy stripping protects one clue of every language unlocked for that metal, so mixed tiers cannot generate without their new mechanic.
+
+In deliberate mode, Mirror-governed cells carry a faint `◇`; it becomes `◆` when a satisfied Mirror proves that unknown cell is waste. A Mirror clue does not fade until every cell in its remote scope has been explicitly classified. Speed mode hides these dependency marks and performs the waste deduction automatically.
+
 ## Call chain
 ```
 startTier → generate → buildOne → trySolve → deduce → block / topology

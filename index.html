@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>The Great Work — Hex Surround Seven</title>
+<title>The Great Work — Hex Alchemy</title>
 <style>
   :root {
     --bg: #0e0e0e;
@@ -11,11 +11,14 @@
     --cell: #232323;
     --cell-hover: #2f2f2f;
     --green: #5ce05c;
+    --ore: #3b6840;
+    --ore-hover: #477b4d;
     --mark-red: #7a2f2f;
     --mark-red-h: #934040;
     --text: #d8d8d8;
-    --num: #cfcfcf;
-    --num-on-green: #0b3d0b;
+    --num: #d8cbb2;
+    --silver: #bccacf;
+    --scope: #d1a43b;
     --bad: #e0564c;
   }
   * { box-sizing: border-box; }
@@ -70,17 +73,23 @@
 
   .board-wrap { background: #000; padding: 10px; border-radius: 8px; border: 3px solid var(--tier, #333); transition: border-color .2s; touch-action: none; user-select: none; max-width: 100%; }
   svg { display: block; height: auto; }
-  polygon { stroke: #000; stroke-width: 1.5; cursor: pointer; transition: fill .05s; }
+  polygon { stroke: #000; stroke-width: 1.5; cursor: pointer; transition: fill .05s, stroke .04s; }
   polygon:hover { fill: var(--cell-hover); }
-  polygon.filled { fill: var(--green); }
-  polygon.filled:hover { fill: #6ef06e; }
+  polygon.filled { fill: var(--ore); }
+  polygon.filled:hover { fill: var(--ore-hover); }
   polygon.empty { fill: var(--mark-red); }
   polygon.empty:hover { fill: var(--mark-red-h); }
+  polygon.scope { stroke: var(--scope); stroke-width: 3; }
   polygon.bad { stroke: var(--bad); stroke-width: 3; }
-  text { pointer-events: none; font-weight: 600; fill: var(--num); user-select: none; transition: opacity .1s, fill .1s; }
-  text.on-green { fill: var(--num-on-green); }
+  text { pointer-events: none; font-weight: 600; fill: var(--num); user-select: none;
+         paint-order: stroke; stroke: #100d0a; stroke-width: 2px; stroke-linejoin: round;
+         transition: opacity .08s, fill .08s; }
   text.done { opacity: 0.28; }
+  text.mirror.done { fill: #aeb8ba; opacity: 0.68; }
   text.over { fill: var(--bad); opacity: 1; }
+  text.mirror-marker { fill: var(--silver); opacity: .38; font-weight: 700; }
+  text.mirror-marker.proven { opacity: .95; }
+  text.mirror-marker.hidden { display: none; }
 
   .legend { font-size: 12px; color: #888; margin-top: 14px; max-width: 600px; text-align: center; line-height: 1.6; }
   .navlink { margin-top: 10px; font-size: 12px; color: #666; }
@@ -107,7 +116,7 @@
 </head>
 <body>
   <h1>The Great <span>Work</span></h1>
-  <div class="sub">Hex Surround Seven — transmute Lead into Gold, one puzzle at a time. Each clue = green hexes in its 7-cell cluster.</div>
+  <div class="sub">Transmute Lead into Gold through five exact-count clue languages.</div>
 
   <div id="ladder" class="ladder"></div>
 
@@ -130,7 +139,8 @@
 
   <div class="legend">
     Pick a tool (🟩 🟥 ⬜), then <strong>tap / click / drag</strong> to paint. On desktop: <strong>right-click</strong> = red, <strong>middle-click</strong> = clear.<br>
-    Fill <em>every</em> hex (green or red) to <strong>transmute</strong> up the ladder. <strong>Speed mode</strong>: paint green only — leftover cells auto-fill red when a clue is satisfied, and you win once the greens are right.<br>
+    Fill <em>every</em> hex (green or red) to <strong>transmute</strong> up the ladder. Hover a clue to see its exact reach. <strong>Speed mode</strong>: paint green only — leftover cells auto-fill red when a clue is satisfied, and you win once the greens are right.<br>
+    Clues: <strong>1</strong> surround · <strong>○1</strong> halo · <strong>—1</strong> full line · <strong>→1</strong> forward flow · <strong>◇1</strong> reflected surround. In deliberate mode, <strong>◇</strong> marks cells governed by Silver and <strong>◆</strong> marks proven waste.<br>
     Every puzzle is solvable by pure logic — no guessing required.
   </div>
   <div class="navlink">
@@ -142,8 +152,8 @@
     <summary>How it works</summary>
     <ul>
       <li><strong>The ladder</strong> is the classic transmutation order: Lead → Tin → Iron → Copper → Quicksilver → Silver → Gold (Saturn, Jupiter, Mars, Venus, Mercury, Moon, Sun). Solve a tier to ascend; boards grow and harden as you climb.</li>
-      <li><strong>The board</strong> is a hexagon of cells. Each clue counts greens in its 7-cell cluster (itself + 6 neighbours; fewer on the rim). Clue numbers are inked in the current metal's colour.</li>
-      <li><strong>Generation:</strong> a random solution is made, every cell's clue computed, then clues are stripped as long as a deduction-only solver can still rebuild the whole board. The result is a unique, no-guess puzzle.</li>
+      <li><strong>The board</strong> is a hexagon of cells. Lead counts its surrounding cluster; Tin adds neighbour-only halos; Copper adds full-axis spears; Quicksilver adds one-way flows; Silver adds a reflected cluster across the board's centre.</li>
+      <li><strong>Generation:</strong> a random solution is made, mixed exact-count clues are computed, then clues are stripped as long as a deduction-only solver can still rebuild the whole board. Every unlocked clue language is kept visible. The result is a unique, no-guess puzzle.</li>
       <li><strong>Progress</strong> is saved in your browser, so you resume at your current metal. Completed tiers stay unlocked — click one to replay it.</li>
     </ul>
   </details>
@@ -156,22 +166,40 @@ const statusEl = document.getElementById("status");
 
 // hex (pointy-top, axial q,r) neighbour directions
 const DIRS = [[1,0],[1,-1],[0,-1],[-1,0],[-1,1],[0,1]];
+const CLUE = Object.freeze({
+  SURROUND: "surround",
+  HALO: "halo",
+  SPEAR: "spear",
+  FLOW: "flow",
+  MIRROR: "mirror",
+});
+const SPEAR_GLYPHS = ["╲","—","╱"];
+const FLOW_GLYPHS = ["→","↗","↖","←","↙","↘"];
 
 // The transmutation ladder. Colours approximate each metal's Opus Magnum tint.
 const TIERS = [
-  { name:"Lead",        sym:"♄", color:"#8a8f9c", radius:2,  density:0.50 }, // Saturn
-  { name:"Tin",         sym:"♃", color:"#b9c2cf", radius:3,  density:0.50 }, // Jupiter
-  { name:"Iron",        sym:"♂", color:"#c07a63", radius:4,  density:0.50 }, // Mars
-  { name:"Copper",      sym:"♀", color:"#d08540", radius:5,  density:0.52 }, // Venus
-  { name:"Quicksilver", sym:"☿", color:"#46c4ba", radius:6,  density:0.52 }, // Mercury
-  { name:"Silver",      sym:"☽", color:"#e6eaef", radius:8,  density:0.55, attempts:4 },  // Moon
-  { name:"Gold",        sym:"☉", color:"#e8be2a", radius:10, density:0.55, attempts:14 }, // Sun
+  { name:"Lead",        sym:"♄", color:"#8a8f9c", radius:2,  density:0.50,
+    kinds:[CLUE.SURROUND] }, // Saturn
+  { name:"Tin",         sym:"♃", color:"#b9c2cf", radius:3,  density:0.50,
+    kinds:[CLUE.SURROUND,CLUE.HALO] }, // Jupiter
+  { name:"Iron",        sym:"♂", color:"#c07a63", radius:4,  density:0.50,
+    kinds:[CLUE.SURROUND,CLUE.HALO] }, // Mars
+  { name:"Copper",      sym:"♀", color:"#d08540", radius:5,  density:0.52,
+    kinds:[CLUE.SURROUND,CLUE.HALO,CLUE.SPEAR] }, // Venus
+  { name:"Quicksilver", sym:"☿", color:"#46c4ba", radius:6,  density:0.52,
+    kinds:[CLUE.SURROUND,CLUE.HALO,CLUE.SPEAR,CLUE.FLOW] }, // Mercury
+  { name:"Silver",      sym:"☽", color:"#e6eaef", radius:8,  density:0.55, attempts:4,
+    kinds:[CLUE.SURROUND,CLUE.HALO,CLUE.SPEAR,CLUE.FLOW,CLUE.MIRROR] }, // Moon
+  { name:"Gold",        sym:"☉", color:"#e8be2a", radius:10, density:0.55, attempts:14,
+    kinds:[CLUE.SURROUND,CLUE.HALO,CLUE.SPEAR,CLUE.FLOW,CLUE.MIRROR] }, // Sun
 ];
 
 let R = 2;
 let cells = [], idxOf = new Map(), block = [];
 let solution = [], clues = [], state = [];
 let poly = [], txt = [];
+let mirrorMarkers = [], mirrorGovernors = [];
+let highlightedScope = [];
 let solved = false;
 let curFont = 18;
 let speedMode = false;   // false = manual reds + fill-every-cell win; true = auto-red + greens-only win
@@ -206,8 +234,8 @@ function deduce(cluesArr, known){
       const clue = cluesArr[i];
       if(clue===null) continue;
       let kf=0; const unk=[];
-      for(const j of block[i]){ if(known[j]===1) kf++; else if(known[j]===-1) unk.push(j); }
-      const need = clue - kf;
+      for(const j of clue.cells){ if(known[j]===1) kf++; else if(known[j]===-1) unk.push(j); }
+      const need = clue.count - kf;
       if(need<0 || need>unk.length) return "contradiction";
       if(unk.length===0) continue;
       if(need===0){ for(const j of unk) known[j]=0; prog=true; }
@@ -222,32 +250,92 @@ function trySolve(cluesArr){
   return { res: deduce(cluesArr, known), known };
 }
 
+function randomAxis(i, kind){
+  if(kind!==CLUE.FLOW) return Math.floor(Math.random()*3);
+  const c = cells[i], valid=[];
+  for(let axis=0;axis<DIRS.length;axis++){
+    const [dq,dr] = DIRS[axis];
+    if(idxOf.has((c.q+dq)+","+(c.r+dr))) valid.push(axis);
+  }
+  return valid[Math.floor(Math.random()*valid.length)];
+}
+
+function clueScope(i, kind, axis){
+  const c = cells[i];
+  if(kind===CLUE.HALO) return block[i].filter(j=>j!==i);
+  if(kind===CLUE.SPEAR){
+    return cells.filter(other=>{
+      if(axis===0) return other.q===c.q;
+      if(axis===1) return other.r===c.r;
+      return other.q+other.r===c.q+c.r;
+    }).map(other=>other.idx);
+  }
+  if(kind===CLUE.FLOW){
+    const result=[], [dq,dr]=DIRS[axis];
+    let q=c.q+dq, r=c.r+dr;
+    while(idxOf.has(q+","+r)){
+      result.push(idxOf.get(q+","+r));
+      q+=dq; r+=dr;
+    }
+    return result;
+  }
+  if(kind===CLUE.MIRROR) return block[idxOf.get((-c.q)+","+(-c.r))].slice();
+  return block[i].slice();
+}
+
+function buildCompleteClues(sol, kinds){
+  const result = new Array(cells.length);
+  const order = shuffle(cells.map(c=>c.idx));
+  const offset = Math.floor(Math.random()*kinds.length);
+  order.forEach((i,n)=>{
+    const kind = kinds[(n+offset)%kinds.length];
+    const axis = randomAxis(i,kind);
+    const scope = clueScope(i,kind,axis);
+    let count=0;
+    for(const j of scope) count+=sol[j];
+    result[i] = {count,kind,axis,cells:scope};
+  });
+  return result;
+}
+
+function stripClues(full){
+  const working = full.slice();
+  const order = shuffle(cells.map(c=>c.idx));
+  const protectedKinds = new Set(), protectedCells = new Set();
+  for(const i of order){
+    const kind=working[i].kind;
+    if(!protectedKinds.has(kind)){
+      protectedKinds.add(kind);
+      protectedCells.add(i);
+    }
+  }
+  for(const i of order){
+    if(protectedCells.has(i)) continue;
+    const saved=working[i];
+    working[i]=null;
+    if(trySolve(working).res!=="solved") working[i]=saved;
+  }
+  return working;
+}
+
 // Build one minimal (max-sparsity) puzzle from a fresh random solution.
-function buildOne(density, n){
+function buildOne(density, kinds){
   while(true){
     const sol = cells.map(()=> Math.random()<density?1:0);
-    const full = cells.map((c,i)=>{ let s=0; for(const j of block[i]) s+=sol[j]; return s; });
+    if(sol.every(x=>x===0) || sol.every(x=>x===1)) continue;
+    const full = buildCompleteClues(sol,kinds);
     if(trySolve(full).res!=="solved") continue;
-    const working = full.slice();
-    for(const i of shuffle(cells.map((_,i)=>i))){
-      const saved = working[i];
-      working[i] = null;
-      const {res, known} = trySolve(working);
-      let ok = res==="solved";
-      if(ok) for(let k=0;k<n;k++) if(known[k]!==sol[k]){ ok=false; break; }
-      if(!ok) working[i] = saved;
-    }
+    const working = stripClues(full);
     return { sol, working };
   }
 }
 
 // attempts > 1: generate several candidates and keep the sparsest (fewest clues).
-function generate(radius, density, attempts){
+function generate(radius, density, attempts, kinds){
   buildTopology(radius);
-  const n = cells.length;
   let best=null, bestCount=Infinity;
   for(let a=0; a<(attempts||1); a++){
-    const cand = buildOne(density, n);
+    const cand = buildOne(density, kinds);
     const cnt = cand.working.reduce((s,x)=> s + (x!==null?1:0), 0);
     if(cnt < bestCount){ bestCount = cnt; best = cand; }
   }
@@ -263,6 +351,23 @@ function hexPoints(cx, cy, s){
     pts.push((cx+s*Math.cos(ang)).toFixed(2)+","+(cy+s*Math.sin(ang)).toFixed(2));
   }
   return pts.join(" ");
+}
+
+function clueLabel(clue){
+  if(clue.kind===CLUE.HALO) return `○${clue.count}`;
+  if(clue.kind===CLUE.SPEAR) return `${SPEAR_GLYPHS[clue.axis]}${clue.count}`;
+  if(clue.kind===CLUE.FLOW) return `${FLOW_GLYPHS[clue.axis]}${clue.count}`;
+  if(clue.kind===CLUE.MIRROR) return `◇${clue.count}`;
+  return String(clue.count);
+}
+
+function clueTitle(clue){
+  const label=clueLabel(clue);
+  if(clue.kind===CLUE.HALO) return `${label}: green neighbours; excludes this cell`;
+  if(clue.kind===CLUE.SPEAR) return `${label}: greens across this complete axis`;
+  if(clue.kind===CLUE.FLOW) return `${label}: greens ahead in the arrow's direction`;
+  if(clue.kind===CLUE.MIRROR) return `${label}: greens around the reflected cell across the centre`;
+  return `${label}: greens in this cell and its neighbours`;
 }
 
 function buildBoard(){
@@ -282,30 +387,52 @@ function buildBoard(){
   boardEl.setAttribute("viewBox", `0 0 ${svgW.toFixed(1)} ${svgH.toFixed(1)}`);
   boardEl.removeAttribute("width"); boardEl.removeAttribute("height");
   boardEl.style.width = `min(calc(100vw - 46px), ${svgW.toFixed(0)}px)`;
-  boardEl.innerHTML = ""; poly=[]; txt=[];
+  boardEl.innerHTML = ""; poly=[]; txt=[]; mirrorMarkers=[];
+  mirrorGovernors=cells.map(()=>[]);
+  highlightedScope=[]; hoveredCell=-1;
   document.documentElement.style.setProperty("--tier", tierColor);
 
   for(const c of cells){
     const cx = c.cx+ox, cy = c.cy+oy;
+    c.drawX=cx; c.drawY=cy;
     const p = document.createElementNS(SVG_NS,"polygon");
     p.setAttribute("points", hexPoints(cx,cy,s-1));
     p.setAttribute("fill", "#232323");
     p.dataset.idx = c.idx;
     boardEl.appendChild(p);
     poly[c.idx]=p;
-    if(clues[c.idx]!==null){
-      const ti = document.createElementNS(SVG_NS,"title");
-      ti.textContent = clues[c.idx];
-      p.appendChild(ti);
-      const t = document.createElementNS(SVG_NS,"text");
-      t.setAttribute("x",cx); t.setAttribute("y",cy+1);
-      t.setAttribute("text-anchor","middle");
-      t.setAttribute("dominant-baseline","central");
-      t.setAttribute("font-size", curFont);
-      t.textContent = clues[c.idx];
-      boardEl.appendChild(t);
-      txt[c.idx]=t;
+  }
+  for(const c of cells){
+    const clue=clues[c.idx];
+    if(clue===null) continue;
+    const ti = document.createElementNS(SVG_NS,"title");
+    ti.textContent = clueTitle(clue);
+    poly[c.idx].appendChild(ti);
+    const t = document.createElementNS(SVG_NS,"text");
+    t.setAttribute("x",c.drawX); t.setAttribute("y",c.drawY+1);
+    t.setAttribute("text-anchor","middle");
+    t.setAttribute("dominant-baseline","central");
+    t.setAttribute("font-size", curFont);
+    t.textContent = clueLabel(clue);
+    t.classList.toggle("mirror",clue.kind===CLUE.MIRROR);
+    boardEl.appendChild(t);
+    txt[c.idx]=t;
+    if(clue.kind===CLUE.MIRROR){
+      for(const governed of clue.cells) mirrorGovernors[governed].push(c.idx);
     }
+  }
+  for(let i=0;i<cells.length;i++){
+    if(mirrorGovernors[i].length===0) continue;
+    const c=cells[i], marker=document.createElementNS(SVG_NS,"text");
+    marker.setAttribute("x",c.drawX+s*.30);
+    marker.setAttribute("y",c.drawY-s*.48);
+    marker.setAttribute("text-anchor","middle");
+    marker.setAttribute("dominant-baseline","central");
+    marker.setAttribute("font-size",Math.max(9,Math.round(curFont*.55)));
+    marker.classList.add("mirror-marker");
+    marker.textContent="◇";
+    boardEl.appendChild(marker);
+    mirrorMarkers[i]=marker;
   }
   renderCell();
 }
@@ -315,27 +442,61 @@ function paintCell(i){
   p.classList.toggle("filled", state[i]===1);
   p.classList.toggle("empty", state[i]===2);   // manual reds
   p.classList.remove("bad");
-  if(txt[i]) txt[i].classList.toggle("on-green", state[i]===1);
 }
-// A clue greys out when satisfied (reddens if it has too many). In Speed mode, a satisfied
-// clue's leftover cells are provably empty, so they auto-fill red.
+function greenCount(clue){
+  let count=0;
+  for(const j of clue.cells) if(state[j]===1) count++;
+  return count;
+}
+function clueSatisfied(clue){ return greenCount(clue)===clue.count; }
+function mirrorResolved(clue){
+  return speedMode || clue.cells.every(j=>state[j]!==0);
+}
+// Ordinary clues fade as soon as their quota is met. A Mirror stays active in deliberate
+// mode until every remote cell is explicitly classified, even when its number is satisfied.
 function updateFades(){
   const red = new Array(cells.length).fill(false);
   for(let i=0;i<cells.length;i++){
-    if(clues[i]===null) continue;
-    let g=0;
-    for(const j of block[i]) if(state[j]===1) g++;
-    txt[i].classList.toggle("done", g===clues[i]);
-    txt[i].classList.toggle("over", g>clues[i]);
-    if(speedMode && g===clues[i]) for(const j of block[i]) if(state[j]!==1) red[j]=true;
+    const clue=clues[i];
+    if(clue===null) continue;
+    const g=greenCount(clue);
+    const done=g===clue.count && (clue.kind!==CLUE.MIRROR || mirrorResolved(clue));
+    txt[i].classList.toggle("done",done);
+    txt[i].classList.toggle("over",g>clue.count);
+    if(speedMode && g===clue.count){
+      for(const j of clue.cells) if(state[j]!==1) red[j]=true;
+    }
   }
   if(speedMode) for(let i=0;i<cells.length;i++) poly[i].classList.toggle("empty", red[i] && state[i]!==1);
+  updateMirrorMarkers();
+}
+function updateMirrorMarkers(){
+  for(let i=0;i<mirrorMarkers.length;i++){
+    const marker=mirrorMarkers[i];
+    if(!marker) continue;
+    marker.classList.toggle("hidden",speedMode);
+    let provesWaste=false;
+    if(!speedMode && state[i]===0){
+      provesWaste=mirrorGovernors[i].some(source=>clueSatisfied(clues[source]));
+    }
+    marker.textContent=provesWaste?"◆":"◇";
+    marker.classList.toggle("proven",provesWaste);
+  }
 }
 function renderCell(){ for(let i=0;i<cells.length;i++) paintCell(i); updateFades(); }
 
 // ---------- interaction ----------
 // tool = green | red | erase (for tap/left-click/drag). button: 0 = tool, 1 = clear, 2 = red.
-let dragging=false, dragApply=null, tool="green";
+let dragging=false, dragApply=null, tool="green", hoveredCell=-1;
+function showScope(i){
+  if(i===hoveredCell) return;
+  for(const j of highlightedScope) poly[j].classList.remove("scope");
+  highlightedScope=[];
+  hoveredCell=i;
+  if(i<0 || clues[i]===null) return;
+  highlightedScope=clues[i].cells.slice();
+  for(const j of highlightedScope) poly[j].classList.add("scope");
+}
 function firstValue(i, button){
   if(button===1) return 0;                                  // middle = clear
   if(button===2) return speedMode ? 0 : (state[i]===2?0:2);  // right = red (or clear in speed)
@@ -355,10 +516,13 @@ boardEl.addEventListener("mousedown", e=>{
   applyPaint(+t.dataset.idx, e.button);
 });
 boardEl.addEventListener("mouseover", e=>{
-  if(!dragging) return;
-  const t=e.target.closest("polygon"); if(!t) return;
-  applyPaint(+t.dataset.idx, 0);
+  const t=e.target.closest("polygon");
+  if(!t){ showScope(-1); return; }
+  const i=+t.dataset.idx;
+  showScope(i);
+  if(dragging) applyPaint(i, 0);
 });
+boardEl.addEventListener("mouseleave", ()=>showScope(-1));
 window.addEventListener("mouseup", ()=>{ if(dragging){ dragging=false; afterMove(); } });
 boardEl.addEventListener("contextmenu", e=>e.preventDefault());
 function touchPoly(touch){
@@ -480,12 +644,13 @@ function startTier(idx){
   setStatus(`Forging ${TIERS[idx].name}…`, "info");
   setTimeout(()=>{
     const t = TIERS[idx];
-    generate(t.radius, t.density, t.attempts);
+    generate(t.radius, t.density, t.attempts, t.kinds);
     state = cells.map(()=>0); solved=false;
     buildBoard();
     saveProgress();
     const shown = clues.filter(x=>x!==null).length;
-    setStatus(`${t.name} tier — ${cells.length} hexes, ${shown} clues.`, "info");
+    const languages=[...new Set(clues.filter(Boolean).map(c=>c.kind))].length;
+    setStatus(`${t.name} tier — ${cells.length} hexes, ${shown} clues, ${languages} clue language${languages===1?"":"s"}.`, "info");
   }, 20);
 }
 
