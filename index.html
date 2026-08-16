@@ -1,677 +1,1015 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>The Great Work — Hex Alchemy</title>
-<style>
-  :root {
-    --bg: #0e0e0e;
-    --panel: #161616;
-    --cell: #232323;
-    --cell-hover: #2f2f2f;
-    --green: #5ce05c;
-    --ore: #3b6840;
-    --ore-hover: #477b4d;
-    --mark-red: #7a2f2f;
-    --mark-red-h: #934040;
-    --text: #d8d8d8;
-    --num: #d8cbb2;
-    --silver: #bccacf;
-    --scope: #d1a43b;
-    --bad: #e0564c;
-  }
-  * { box-sizing: border-box; }
-  body {
-    margin: 0; background: var(--bg); color: var(--text);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    display: flex; flex-direction: column; align-items: center;
-    padding: 18px 12px 60px; min-height: 100vh;
-  }
-  h1 { font-size: 23px; margin: 0 0 2px; letter-spacing: .5px; font-weight: 700; }
-  h1 span { color: var(--green); }
-  .sub { color: #888; font-size: 13px; margin-bottom: 16px; text-align: center; }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Great Work — Hex Alchemy</title>
+  <style>
+    :root {
+      --bg: #0a0a0c;
+      --panel: #15151a;
+      --border: #2a2a35;
+      --text: #d0d0d5;
+      --accent: #e8be2a; /* Gold */
+      --prima: #d8d8d8;
+      --sulfur: #e8be2a;
+      --mercury: #46c4ba;
+      --salt: #bccacf;
+      --quintessence: #ff5ce0;
+      --green: #5ce05c;
+      --red: #e0564c;
+      --gold: #e8be2a;
+    }
 
-  /* ---- transmutation ladder ---- */
-  .ladder { display: flex; flex-wrap: wrap; align-items: center; justify-content: center;
-            gap: 2px; margin-bottom: 16px; max-width: 820px; }
-  .tier { display: flex; flex-direction: column; align-items: center; gap: 2px;
-          padding: 6px 9px; border-radius: 8px; border: 1px solid transparent; min-width: 64px;
-          cursor: default; transition: background .15s, border-color .15s; }
-  .tier .g { font-size: 22px; line-height: 1; font-weight: 700; }
-  .tier .tn { font-size: 11px; color: #999; }
-  .tier.locked { opacity: .4; }
-  .tier.unlocked { cursor: pointer; }
-  .tier.unlocked:hover { background: #1b1b1b; }
-  .tier.done .tn { color: #cfcfcf; }
-  .tier.current { border-color: currentColor; background: #1d1d1d; }
-  .tier.current .tn { color: #fff; }
-  .lad-arrow { color: #444; font-size: 14px; padding: 0 1px; align-self: flex-start; margin-top: 14px; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; background: var(--bg); color: var(--text);
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      display: flex; flex-direction: column; align-items: center;
+      min-height: 100vh; overflow-x: hidden;
+    }
 
-  .controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
-              justify-content: center; margin-bottom: 12px; max-width: 780px; }
-  button { background: var(--panel); color: var(--text); border: 1px solid #333;
-           border-radius: 6px; padding: 8px 12px; font-size: 13px; cursor: pointer; font-family: inherit;
-           touch-action: manipulation; }
-  button:hover { border-color: #555; background: #1e1e1e; }
-  button.active { border-color: var(--green); color: var(--green); }
-  .tools { display: inline-flex; gap: 4px; }
-  #tGreen.on { border-color: var(--green); color: var(--green); }
-  #tRed.on { border-color: var(--mark-red-h); color: #e89a9a; }
-  #tErase.on { border-color: #999; color: #ddd; }
-  label.speed { font-size: 13px; color: #aaa; display: flex; align-items: center; gap: 5px; cursor: pointer; }
-  label.speed input { cursor: pointer; }
-  button.primary { background: var(--green); color: #062806; border-color: var(--green); font-weight: 600; }
-  button.primary:hover { background: #6ef06e; }
-  button#transmute { background: #e8be2a; color: #2a2106; border-color: #e8be2a; font-weight: 700; display: none; }
-  button#transmute:hover { background: #f5cf45; }
+    header {
+      text-align: center; padding: 20px; width: 100%;
+      border-bottom: 1px solid var(--border);
+      background: linear-gradient(to bottom, #1a1a20, var(--bg));
+    }
+    h1 { margin: 0; font-size: 28px; letter-spacing: 2px; color: var(--accent); text-shadow: 0 0 10px rgba(232, 190, 42, 0.3); }
+    .subtitle { font-size: 14px; color: #777; font-style: italic; margin-top: 5px; }
 
-  #status { min-height: 22px; font-size: 14px; margin-bottom: 10px; font-weight: 600; text-align: center; }
-  #status.win { color: var(--green); }
-  #status.err { color: var(--bad); }
-  #status.info { color: #9bb; }
+    main {
+      display: grid;
+      grid-template-columns: 300px 1fr 300px;
+      gap: 20px;
+      width: 100%;
+      max-width: 1600px;
+      padding: 20px;
+      flex-grow: 1;
+    }
 
-  .board-wrap { background: #000; padding: 10px; border-radius: 8px; border: 3px solid var(--tier, #333); transition: border-color .2s; touch-action: none; user-select: none; max-width: 100%; }
-  svg { display: block; height: auto; }
-  polygon { stroke: #000; stroke-width: 1.5; cursor: pointer; transition: fill .05s, stroke .04s; }
-  polygon:hover { fill: var(--cell-hover); }
-  polygon.filled { fill: var(--ore); }
-  polygon.filled:hover { fill: var(--ore-hover); }
-  polygon.empty { fill: var(--mark-red); }
-  polygon.empty:hover { fill: var(--mark-red-h); }
-  polygon.scope { stroke: var(--scope); stroke-width: 3; }
-  polygon.bad { stroke: var(--bad); stroke-width: 3; }
-  text { pointer-events: none; font-weight: 600; fill: var(--num); user-select: none;
-         paint-order: stroke; stroke: #100d0a; stroke-width: 2px; stroke-linejoin: round;
-         transition: opacity .08s, fill .08s; }
-  text.done { opacity: 0.28; }
-  text.mirror.done { fill: #aeb8ba; opacity: 0.68; }
-  text.over { fill: var(--bad); opacity: 1; }
-  text.mirror-marker { fill: var(--silver); opacity: .38; font-weight: 700; }
-  text.mirror-marker.proven { opacity: .95; }
-  text.mirror-marker.hidden { display: none; }
+    /* Panels */
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .panel-header {
+      padding: 10px; background: rgba(255,255,255,0.05);
+      border-bottom: 1px solid var(--border);
+      font-weight: bold; font-size: 14px; text-transform: uppercase; letter-spacing: 1px;
+      color: var(--accent);
+    }
+    .panel-content { padding: 15px; flex-grow: 1; overflow-y: auto; }
 
-  .legend { font-size: 12px; color: #888; margin-top: 14px; max-width: 600px; text-align: center; line-height: 1.6; }
-  .navlink { margin-top: 10px; font-size: 12px; color: #666; }
-  .navlink a { color: var(--green); }
-  details { max-width: 640px; margin-top: 20px; font-size: 13px; color: #aaa; line-height: 1.55; }
-  summary { cursor: pointer; color: var(--green); font-weight: 600; }
-  details li { margin: 6px 0; }
+    /* Ledger (Resources) */
+    .resource-item {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 10px; padding: 8px; border-radius: 4px; background: rgba(0,0,0,0.2);
+    }
+    .resource-name { font-size: 14px; }
+    .resource-val { font-family: monospace; font-size: 16px; font-weight: bold; }
 
-  @media (max-width: 600px) {
-    body { padding: 12px 8px 50px; }
-    h1 { font-size: 20px; }
-    .sub { font-size: 12px; margin-bottom: 10px; }
-    .ladder { gap: 1px; margin-bottom: 12px; }
-    .tier { min-width: 42px; padding: 4px 4px; }
-    .tier .g { font-size: 18px; }
-    .tier .tn { font-size: 9px; }
-    .lad-arrow { display: none; }
-    .controls { gap: 6px; margin-bottom: 10px; }
-    button { padding: 9px 11px; }
-    .board-wrap { padding: 6px; }
-    .legend { font-size: 11px; }
-  }
-</style>
+    /* Crucible (Board) */
+    #crucible {
+      display: flex; flex-direction: column; align-items: center;
+    }
+    .board-wrap {
+      background: #000; padding: 15px; border-radius: 12px;
+      border: 2px solid var(--border); margin: 20px 0;
+      box-shadow: 0 0 30px rgba(0,0,0,0.5);
+      user-select: none; touch-action: none;
+    }
+    svg { display: block; height: auto; }
+
+    .controls { display: flex; gap: 10px; align-items: center; justify-content: center; margin-top: 10px;}
+    button {
+      background: var(--panel); color: var(--text); border: 1px solid var(--border);
+      padding: 8px 15px; border-radius: 4px; cursor: pointer; font-size: 13px;
+      transition: all 0.2s;
+    }
+    button:hover { background: var(--border); }
+    button.primary { background: var(--accent); color: #000; font-weight: bold; border: none; }
+    button.primary:hover { background: #f5cf45; }
+
+    /* Alembic (Tech Tree / Transmutation) */
+    .tech-item {
+      margin-bottom: 15px; padding: 10px; border-radius: 6px;
+      border: 1px solid var(--border); background: rgba(0,0,0,0.2);
+    }
+    .tech-name { font-weight: bold; display: block; margin-bottom: 4px; font-size: 14px; }
+    .tech-desc { font-size: 12px; color: #888; display: block; margin-bottom: 8px; }
+    .tech-cost { font-size: 11px; color: var(--accent); font-family: monospace; }
+    .tech-btn { width: 100%; margin-top: 8px; padding: 5px; font-size: 12px; }
+    .tech-item.unlocked { border-color: var(--accent); }
+    .tech-item.locked { opacity: 0.6; }
+
+    .transmute-btn {
+      width: 100%; padding: 8px; margin-top: 5px;
+      background: rgba(232, 190, 42, 0.1); color: var(--accent);
+      border: 1px solid var(--accent); border-radius: 4px;
+      cursor: pointer; font-size: 12px; transition: all 0.2s;
+    }
+    .transmute-btn:hover { background: var(--accent); color: #000; }
+
+    /* Status Messages */
+    #status { margin-top: 10px; font-size: 14px; height: 20px; text-align: center; }
+    .status-win { color: var(--green); }
+    .status-err { color: var(--red); }
+    .status-info { color: #888; }
+
+    /* SVG Styles */
+    polygon { stroke: #000; stroke-width: 1.5; cursor: pointer; transition: fill .05s, stroke .04s; }
+    polygon:hover { fill: #2f2f2f; }
+    polygon.filled { fill: #3b6840; }
+    polygon.empty { fill: #7a2f2f; }
+    polygon.scope { stroke: #d1a43b; stroke-width: 3; }
+    polygon.bad { stroke: #e0564c; stroke-width: 3; }
+    text { pointer-events: none; font-weight: 600; fill: #d8cbb2; user-select: none;
+           paint-order: stroke; stroke: #100d0a; stroke-width: 2px; stroke-linejoin: round;
+           transition: opacity .08s, fill .08s; }
+    text.done { opacity: 0.28; }
+
+    @media (max-width: 1000px) {
+      main { grid-template-columns: 1fr; }
+    }
+  </style>
 </head>
 <body>
-  <h1>The Great <span>Work</span></h1>
-  <div class="sub">Transmute Lead into Gold through five exact-count clue languages.</div>
 
-  <div id="ladder" class="ladder"></div>
+  <header>
+    <h1>THE GREAT WORK</h1>
+    <div class="subtitle">Transmute the elements to achieve the Magnum Opus</div>
+  </header>
 
-  <div class="controls">
-    <span class="tools">
-      <button id="tGreen" class="on">🟩</button>
-      <button id="tRed">🟥</button>
-      <button id="tErase">⬜</button>
-    </span>
-    <button class="primary" id="new">New Board</button>
-    <button id="check">Check</button>
-    <button id="reset">Reset</button>
-    <button id="solve">Show Solution</button>
-    <button id="transmute"></button>
-    <label class="speed"><input type="checkbox" id="speed"> Speed mode</label>
-  </div>
+  <main>
+    <!-- Ledger Panel -->
+    <section id="ledger" class="panel">
+      <div class="panel-header">The Ledger</div>
+      <div class="panel-content" id="resource-list"></div>
+    </section>
 
-  <div id="status"></div>
-  <div class="board-wrap"><svg id="board"></svg></div>
+    <!-- Crucible Panel -->
+    <section id="crucible" class="panel">
+      <div class="panel-header">The Crucible</div>
+      <div class="panel-content" style="display:flex; flex-direction:column; align-items:center;">
+        <div id="status"></div>
+        <div class="board-wrap">
+          <svg id="board"></svg>
+        </div>
+        <div class="controls">
+          <button id="new-board">New Puzzle</button>
+          <button id="check-board">Check</button>
+          <button id="reset-board">Reset</button>
+          <button id="solve-board">Reveal</button>
+        </div>
+        <div class="controls" style="margin-top:20px;">
+          <label style="font-size:12px; color:#aaa; display:flex; align-items:center; gap:5px; cursor:pointer;">
+            <input type="checkbox" id="speed-mode" checked> Fast Mode
+          </label>
+        </div>
+      </div>
+    </section>
 
-  <div class="legend">
-    Pick a tool (🟩 🟥 ⬜), then <strong>tap / click / drag</strong> to paint. On desktop: <strong>right-click</strong> = red, <strong>middle-click</strong> = clear.<br>
-    Fill <em>every</em> hex (green or red) to <strong>transmute</strong> up the ladder. Hover a clue to see its exact reach. <strong>Speed mode</strong>: paint green only — leftover cells auto-fill red when a clue is satisfied, and you win once the greens are right.<br>
-    Clues: <strong>1</strong> surround · <strong>○1</strong> halo · <strong>—1</strong> full line · <strong>→1</strong> forward flow · <strong>◇1</strong> reflected surround. In deliberate mode, <strong>◇</strong> marks cells governed by Silver and <strong>◆</strong> marks proven waste.<br>
-    Every puzzle is solvable by pure logic — no guessing required.
-  </div>
-  <div class="navlink">
-    <a href="surround-nine.html">← Square version (Surround Nine)</a> &nbsp;·&nbsp;
-    <a href="#" id="resetprog">Reset progress</a>
-  </div>
+    <!-- Alembic Panel -->
+    <section id="alembic" class="panel">
+      <div class="panel-header">The Alembic</div>
+      <div class="panel-content">
+        <div id="upgrades-list"></div>
+        <hr style="border:0; border-top:1px solid var(--border); margin:20px 0;">
+        <div id="transmute-list"></div>
+        <hr style="border:0; border-top:1px solid var(--border); margin:20px 0;">
+        <div id="tech-tree-list"></div>
+      </div>
+    </section>
+  </main>
 
-  <details>
-    <summary>How it works</summary>
-    <ul>
-      <li><strong>The ladder</strong> is the classic transmutation order: Lead → Tin → Iron → Copper → Quicksilver → Silver → Gold (Saturn, Jupiter, Mars, Venus, Mercury, Moon, Sun). Solve a tier to ascend; boards grow and harden as you climb.</li>
-      <li><strong>The board</strong> is a hexagon of cells. Lead counts its surrounding cluster; Tin adds neighbour-only halos; Copper adds full-axis spears; Quicksilver adds one-way flows; Silver adds a reflected cluster across the board's centre.</li>
-      <li><strong>Generation:</strong> a random solution is made, mixed exact-count clues are computed, then clues are stripped as long as a deduction-only solver can still rebuild the whole board. Every unlocked clue language is kept visible. The result is a unique, no-guess puzzle.</li>
-      <li><strong>Progress</strong> is saved in your browser, so you resume at your current metal. Completed tiers stay unlocked — click one to replay it.</li>
-    </ul>
-  </details>
+  <script>
+    "use strict";
 
-<script>
-"use strict";
-const SVG_NS = "http://www.w3.org/2000/svg";
-const boardEl = document.getElementById("board");
-const statusEl = document.getElementById("status");
+    const SVG_NS = "http://www.w3.org/2000/svg";
+    const DIRS = [[1, 0], [1, -1], [0, -1], [-1, 0], [-1, 1], [0, 1]];
+    const CLUE = Object.freeze({
+      SURROUND: "surround",
+      HALO: "halo",
+      SPEAR: "spear",
+      FLOW: "flow",
+      MIRROR: "mirror",
+    });
+    const SPEAR_GLYPHS = ["╲", "—", "╱"];
+    const FLOW_GLYPHS = ["→", "↗", "↖", "←", "↙", "↘"];
 
-// hex (pointy-top, axial q,r) neighbour directions
-const DIRS = [[1,0],[1,-1],[0,-1],[-1,0],[-1,1],[0,1]];
-const CLUE = Object.freeze({
-  SURROUND: "surround",
-  HALO: "halo",
-  SPEAR: "spear",
-  FLOW: "flow",
-  MIRROR: "mirror",
-});
-const SPEAR_GLYPHS = ["╲","—","╱"];
-const FLOW_GLYPHS = ["→","↗","↖","←","↙","↘"];
+    let gameState = {
+      resources: {
+        prima_materia: 0,
+        sulfur: 0,
+        mercury: 0,
+        salt: 0,
+        quintessence: 0
+      },
+      metals: {
+        lead: { name: "Lead", sym: "♄", amount: 0 },
+        tin: { name: "Tin", sym: "♃", amount: 0 },
+        iron: { name: "Iron", sym: "♂", amount: 0 },
+        copper: { name: "Copper", sym: "♀", amount: 0 },
+        quicksilver: { name: "Quicksilver", sym: "☿", amount: 0 },
+        silver: { name: "Silver", sym: "☽", amount: 0 },
+        gold: { name: "Gold", sym: "☉", amount: 0 }
+      },
+      elements: {
+        fire: { name: "Fire", sym: "🔥", amount: 0 },
+        water: { name: "Water", sym: "💧", amount: 0 },
+        air: { name: "Air", sym: "🌬", amount: 0 },
+        earth: { name: "Earth", sym: "🌱", amount: 0 },
+        quintessence: { name: "Quintessence", sym: "✨", amount: 0 }
+      },
+      upgrades: {
+        board_size: { radius: 2, cost: 10 },
+        clue_discovery: { index: 0, cost: 50 }
+      },
+      techTree: {
+        calcination: false,
+        distillation: false,
+        sublimation: false,
+        conjunction: false,
+        philosophers_stone: false
+      },
+      settings: { speedMode: true },
+      currentPuzzle: {
+        radius: 2,
+        density: 0.5,
+        attempts: 5,
+        kinds: ["surround"],
+        solved: false
+      }
+    };
 
-// The transmutation ladder. Colours approximate each metal's Opus Magnum tint.
-const TIERS = [
-  { name:"Lead",        sym:"♄", color:"#8a8f9c", radius:2,  density:0.50,
-    kinds:[CLUE.SURROUND] }, // Saturn
-  { name:"Tin",         sym:"♃", color:"#b9c2cf", radius:3,  density:0.50,
-    kinds:[CLUE.SURROUND,CLUE.HALO] }, // Jupiter
-  { name:"Iron",        sym:"♂", color:"#c07a63", radius:4,  density:0.50,
-    kinds:[CLUE.SURROUND,CLUE.HALO] }, // Mars
-  { name:"Copper",      sym:"♀", color:"#d08540", radius:5,  density:0.52,
-    kinds:[CLUE.SURROUND,CLUE.HALO,CLUE.SPEAR] }, // Venus
-  { name:"Quicksilver", sym:"☿", color:"#46c4ba", radius:6,  density:0.52,
-    kinds:[CLUE.SURROUND,CLUE.HALO,CLUE.SPEAR,CLUE.FLOW] }, // Mercury
-  { name:"Silver",      sym:"☽", color:"#e6eaef", radius:8,  density:0.55, attempts:4,
-    kinds:[CLUE.SURROUND,CLUE.HALO,CLUE.SPEAR,CLUE.FLOW,CLUE.MIRROR] }, // Moon
-  { name:"Gold",        sym:"☉", color:"#e8be2a", radius:10, density:0.55, attempts:14,
-    kinds:[CLUE.SURROUND,CLUE.HALO,CLUE.SPEAR,CLUE.FLOW,CLUE.MIRROR] }, // Sun
-];
+    const METAL_RECIPES = {
+      lead: { cost: { prima_materia: 10 } },
+      tin: { cost: { prima_materia: 50, sulfur: 5 } },
+      iron: { cost: { prima_materia: 200, sulfur: 20 } },
+      copper: { cost: { prima_materia: 500, sulfur: 50, mercury: 10 } },
+      quicksilver: { cost: { prima_materia: 1000, mercury: 50 } },
+      silver: { cost: { mercury: 100, salt: 10 } },
+      gold: { cost: { salt: 50, quintessence: 5 } }
+    };
 
-let R = 2;
-let cells = [], idxOf = new Map(), block = [];
-let solution = [], clues = [], state = [];
-let poly = [], txt = [];
-let mirrorMarkers = [], mirrorGovernors = [];
-let highlightedScope = [];
-let solved = false;
-let curFont = 18;
-let speedMode = false;   // false = manual reds + fill-every-cell win; true = auto-red + greens-only win
+    const ELEMENT_RECIPES = {
+      fire: { cost: { prima_materia: 100 } },
+      water: { cost: { sulfur: 100 } },
+      air: { cost: { mercury: 100 } },
+      earth: { cost: { salt: 100 } },
+      quintessence: { cost: { mercury: 500, salt: 500 } }
+    };
 
-// campaign progress
-let currentTier = 0;
-let completed = TIERS.map(()=>false);
-let tierColor = TIERS[0].color;
+    let R = 2;
+    let cells = [], idxOf = new Map(), block = [];
+    let solution = [], clues = [], state = [];
+    let poly = [], txt = [], mirrorMarkers = [], mirrorGovernors = [];
+    let highlightedScope = [], hoveredCell = -1;
+    let dragging = false, dragApply = null, tool = "green";
 
-// ---------- topology / solver / generator ----------
-function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+    const resListEl = document.getElementById("resource-list");
+    const upgradeListEl = document.getElementById("upgrades-list");
+    const techListEl = document.getElementById("tech-tree-list");
+    const transmuteListEl = document.getElementById("transmute-list");
+    const boardEl = document.getElementById("board");
+    const statusEl = document.getElementById("status");
 
-function buildTopology(radius){
-  R = radius; cells = []; idxOf = new Map();
-  for(let q=-R;q<=R;q++) for(let r=-R;r<=R;r++){
-    if(Math.abs(q+r)>R) continue;
-    idxOf.set(q+","+r, cells.length);
-    cells.push({q,r,idx:cells.length});
-  }
-  block = cells.map(c=>[c.idx]);
-  for(const c of cells) for(const [dq,dr] of DIRS){
-    const k = idxOf.get((c.q+dq)+","+(c.r+dr));
-    if(k!==undefined) block[c.idx].push(k);
-  }
-}
+    function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
 
-function deduce(cluesArr, known){
-  let prog = true;
-  while(prog){
-    prog = false;
-    for(let i=0;i<cells.length;i++){
-      const clue = cluesArr[i];
-      if(clue===null) continue;
-      let kf=0; const unk=[];
-      for(const j of clue.cells){ if(known[j]===1) kf++; else if(known[j]===-1) unk.push(j); }
-      const need = clue.count - kf;
-      if(need<0 || need>unk.length) return "contradiction";
-      if(unk.length===0) continue;
-      if(need===0){ for(const j of unk) known[j]=0; prog=true; }
-      else if(need===unk.length){ for(const j of unk) known[j]=1; prog=true; }
+    function buildTopology(radius) {
+      R = radius; cells = []; idxOf = new Map();
+      for (let q = -R; q <= R; q++) for (let r = -R; r <= R; r++) {
+        if (Math.abs(q + r) > R) continue;
+        idxOf.set(q + "," + r, cells.length);
+        cells.push({ q, r, idx: cells.length });
+      }
+      block = cells.map(c => [c.idx]);
+      for (const c of cells) for (const [dq, dr] of DIRS) {
+        const k = idxOf.get((c.q + dq) + "," + (c.r + dr));
+        if (k !== undefined) block[c.idx].push(k);
+      }
     }
-  }
-  for(let i=0;i<cells.length;i++) if(known[i]===-1) return "partial";
-  return "solved";
-}
-function trySolve(cluesArr){
-  const known = new Array(cells.length).fill(-1);
-  return { res: deduce(cluesArr, known), known };
-}
 
-function randomAxis(i, kind){
-  if(kind!==CLUE.FLOW) return Math.floor(Math.random()*3);
-  const c = cells[i], valid=[];
-  for(let axis=0;axis<DIRS.length;axis++){
-    const [dq,dr] = DIRS[axis];
-    if(idxOf.has((c.q+dq)+","+(c.r+dr))) valid.push(axis);
-  }
-  return valid[Math.floor(Math.random()*valid.length)];
-}
-
-function clueScope(i, kind, axis){
-  const c = cells[i];
-  if(kind===CLUE.HALO) return block[i].filter(j=>j!==i);
-  if(kind===CLUE.SPEAR){
-    return cells.filter(other=>{
-      if(axis===0) return other.q===c.q;
-      if(axis===1) return other.r===c.r;
-      return other.q+other.r===c.q+c.r;
-    }).map(other=>other.idx);
-  }
-  if(kind===CLUE.FLOW){
-    const result=[], [dq,dr]=DIRS[axis];
-    let q=c.q+dq, r=c.r+dr;
-    while(idxOf.has(q+","+r)){
-      result.push(idxOf.get(q+","+r));
-      q+=dq; r+=dr;
+    function deduce(cluesArr, known) {
+      let prog = true;
+      while (prog) {
+        prog = false;
+        for (let i = 0; i < cells.length; i++) {
+          const clue = cluesArr[i];
+          if (!clue) continue;
+          let kf = 0; const unk = [];
+          for (const j of clue.cells) { if (known[j] === 1) kf++; else if (known[j] === -1) unk.push(j); }
+          const need = clue.count - kf;
+          if (need < 0 || need > unk.length) return "contradiction";
+          if (unk.length === 0) continue;
+          if (need === 0) { for (const j of unk) known[j] = 0; prog = true; }
+          else if (need === unk.length) { for (const j of unk) known[j] = 1; prog = true; }
+        }
+      }
+      for (let i = 0; i < cells.length; i++) if (known[i] === -1) return "partial";
+      return "solved";
     }
-    return result;
-  }
-  if(kind===CLUE.MIRROR) return block[idxOf.get((-c.q)+","+(-c.r))].slice();
-  return block[i].slice();
-}
 
-function buildCompleteClues(sol, kinds){
-  const result = new Array(cells.length);
-  const order = shuffle(cells.map(c=>c.idx));
-  const offset = Math.floor(Math.random()*kinds.length);
-  order.forEach((i,n)=>{
-    const kind = kinds[(n+offset)%kinds.length];
-    const axis = randomAxis(i,kind);
-    const scope = clueScope(i,kind,axis);
-    let count=0;
-    for(const j of scope) count+=sol[j];
-    result[i] = {count,kind,axis,cells:scope};
-  });
-  return result;
-}
-
-function stripClues(full){
-  const working = full.slice();
-  const order = shuffle(cells.map(c=>c.idx));
-  const protectedKinds = new Set(), protectedCells = new Set();
-  for(const i of order){
-    const kind=working[i].kind;
-    if(!protectedKinds.has(kind)){
-      protectedKinds.add(kind);
-      protectedCells.add(i);
+    function trySolve(cluesArr) {
+      const known = new Array(cells.length).fill(-1);
+      return { res: deduce(cluesArr, known), known };
     }
-  }
-  for(const i of order){
-    if(protectedCells.has(i)) continue;
-    const saved=working[i];
-    working[i]=null;
-    if(trySolve(working).res!=="solved") working[i]=saved;
-  }
-  return working;
-}
 
-// Build one minimal (max-sparsity) puzzle from a fresh random solution.
-function buildOne(density, kinds){
-  while(true){
-    const sol = cells.map(()=> Math.random()<density?1:0);
-    if(sol.every(x=>x===0) || sol.every(x=>x===1)) continue;
-    const full = buildCompleteClues(sol,kinds);
-    if(trySolve(full).res!=="solved") continue;
-    const working = stripClues(full);
-    return { sol, working };
-  }
-}
-
-// attempts > 1: generate several candidates and keep the sparsest (fewest clues).
-function generate(radius, density, attempts, kinds){
-  buildTopology(radius);
-  let best=null, bestCount=Infinity;
-  for(let a=0; a<(attempts||1); a++){
-    const cand = buildOne(density, kinds);
-    const cnt = cand.working.reduce((s,x)=> s + (x!==null?1:0), 0);
-    if(cnt < bestCount){ bestCount = cnt; best = cand; }
-  }
-  solution = best.sol;
-  clues = best.working;
-}
-
-// ---------- rendering ----------
-function hexPoints(cx, cy, s){
-  const pts=[];
-  for(let i=0;i<6;i++){
-    const ang = Math.PI/180*(60*i - 30);
-    pts.push((cx+s*Math.cos(ang)).toFixed(2)+","+(cy+s*Math.sin(ang)).toFixed(2));
-  }
-  return pts.join(" ");
-}
-
-function clueLabel(clue){
-  if(clue.kind===CLUE.HALO) return `○${clue.count}`;
-  if(clue.kind===CLUE.SPEAR) return `${SPEAR_GLYPHS[clue.axis]}${clue.count}`;
-  if(clue.kind===CLUE.FLOW) return `${FLOW_GLYPHS[clue.axis]}${clue.count}`;
-  if(clue.kind===CLUE.MIRROR) return `◇${clue.count}`;
-  return String(clue.count);
-}
-
-function clueTitle(clue){
-  const label=clueLabel(clue);
-  if(clue.kind===CLUE.HALO) return `${label}: green neighbours; excludes this cell`;
-  if(clue.kind===CLUE.SPEAR) return `${label}: greens across this complete axis`;
-  if(clue.kind===CLUE.FLOW) return `${label}: greens ahead in the arrow's direction`;
-  if(clue.kind===CLUE.MIRROR) return `${label}: greens around the reflected cell across the centre`;
-  return `${label}: greens in this cell and its neighbours`;
-}
-
-function buildBoard(){
-  const s = R<=2 ? 50 : R===3 ? 42 : R===4 ? 36 : R===5 ? 31 : R===6 ? 27
-          : R===7 ? 24 : R===8 ? 22 : R===9 ? 20 : 18;
-  curFont = Math.max(12, (s*0.82)|0);
-  const W = Math.sqrt(3)*s, H = 1.5*s;
-  let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
-  for(const c of cells){
-    c.cx = W*(c.q + c.r/2); c.cy = H*c.r;
-    minX=Math.min(minX,c.cx); maxX=Math.max(maxX,c.cx);
-    minY=Math.min(minY,c.cy); maxY=Math.max(maxY,c.cy);
-  }
-  const pad = s + 4, ox = pad - minX, oy = pad - minY;
-  const svgW = (maxX-minX)+2*pad, svgH = (maxY-minY)+2*pad;
-  // Responsive: scale via viewBox, cap at natural size, shrink to fit narrow screens.
-  boardEl.setAttribute("viewBox", `0 0 ${svgW.toFixed(1)} ${svgH.toFixed(1)}`);
-  boardEl.removeAttribute("width"); boardEl.removeAttribute("height");
-  boardEl.style.width = `min(calc(100vw - 46px), ${svgW.toFixed(0)}px)`;
-  boardEl.innerHTML = ""; poly=[]; txt=[]; mirrorMarkers=[];
-  mirrorGovernors=cells.map(()=>[]);
-  highlightedScope=[]; hoveredCell=-1;
-  document.documentElement.style.setProperty("--tier", tierColor);
-
-  for(const c of cells){
-    const cx = c.cx+ox, cy = c.cy+oy;
-    c.drawX=cx; c.drawY=cy;
-    const p = document.createElementNS(SVG_NS,"polygon");
-    p.setAttribute("points", hexPoints(cx,cy,s-1));
-    p.setAttribute("fill", "#232323");
-    p.dataset.idx = c.idx;
-    boardEl.appendChild(p);
-    poly[c.idx]=p;
-  }
-  for(const c of cells){
-    const clue=clues[c.idx];
-    if(clue===null) continue;
-    const ti = document.createElementNS(SVG_NS,"title");
-    ti.textContent = clueTitle(clue);
-    poly[c.idx].appendChild(ti);
-    const t = document.createElementNS(SVG_NS,"text");
-    t.setAttribute("x",c.drawX); t.setAttribute("y",c.drawY+1);
-    t.setAttribute("text-anchor","middle");
-    t.setAttribute("dominant-baseline","central");
-    t.setAttribute("font-size", curFont);
-    t.textContent = clueLabel(clue);
-    t.classList.toggle("mirror",clue.kind===CLUE.MIRROR);
-    boardEl.appendChild(t);
-    txt[c.idx]=t;
-    if(clue.kind===CLUE.MIRROR){
-      for(const governed of clue.cells) mirrorGovernors[governed].push(c.idx);
+    function randomAxis(i, kind) {
+      if (kind !== CLUE.FLOW) return Math.floor(Math.random() * 3);
+      const c = cells[i], valid = [];
+      for (let axis = 0; axis < DIRS.length; axis++) {
+        const [dq, dr] = DIRS[axis];
+        if (idxOf.has((c.q + dq) + "," + (c.r + dr))) valid.push(axis);
+      }
+      return valid[Math.floor(Math.random() * valid.length)];
     }
-  }
-  for(let i=0;i<cells.length;i++){
-    if(mirrorGovernors[i].length===0) continue;
-    const c=cells[i], marker=document.createElementNS(SVG_NS,"text");
-    marker.setAttribute("x",c.drawX+s*.30);
-    marker.setAttribute("y",c.drawY-s*.48);
-    marker.setAttribute("text-anchor","middle");
-    marker.setAttribute("dominant-baseline","central");
-    marker.setAttribute("font-size",Math.max(9,Math.round(curFont*.55)));
-    marker.classList.add("mirror-marker");
-    marker.textContent="◇";
-    boardEl.appendChild(marker);
-    mirrorMarkers[i]=marker;
-  }
-  renderCell();
-}
 
-function paintCell(i){
-  const p = poly[i];
-  p.classList.toggle("filled", state[i]===1);
-  p.classList.toggle("empty", state[i]===2);   // manual reds
-  p.classList.remove("bad");
-}
-function greenCount(clue){
-  let count=0;
-  for(const j of clue.cells) if(state[j]===1) count++;
-  return count;
-}
-function clueSatisfied(clue){ return greenCount(clue)===clue.count; }
-function mirrorResolved(clue){
-  return speedMode || clue.cells.every(j=>state[j]!==0);
-}
-// Ordinary clues fade as soon as their quota is met. A Mirror stays active in deliberate
-// mode until every remote cell is explicitly classified, even when its number is satisfied.
-function updateFades(){
-  const red = new Array(cells.length).fill(false);
-  for(let i=0;i<cells.length;i++){
-    const clue=clues[i];
-    if(clue===null) continue;
-    const g=greenCount(clue);
-    const done=g===clue.count && (clue.kind!==CLUE.MIRROR || mirrorResolved(clue));
-    txt[i].classList.toggle("done",done);
-    txt[i].classList.toggle("over",g>clue.count);
-    if(speedMode && g===clue.count){
-      for(const j of clue.cells) if(state[j]!==1) red[j]=true;
+    function clueScope(i, kind, axis) {
+      const c = cells[i];
+      if (kind === CLUE.HALO) return block[i].filter(j => j !== i);
+      if (kind === CLUE.SPEAR) {
+        return cells.filter(other => {
+          if (axis === 0) return other.q === c.q;
+          if (axis === 1) return other.r === c.r;
+          return other.q + other.r === c.q + c.r;
+        }).map(other => other.idx);
+      }
+      if (kind === CLUE.FLOW) {
+        const result = [], [dq, dr] = DIRS[axis];
+        let q = c.q + dq, r = c.r + dr;
+        while (idxOf.has(q + "," + r)) {
+          result.push(idxOf.get(q + "," + r));
+          q += dq; r += dr;
+        }
+        return result;
+      }
+      if (kind === CLUE.MIRROR) return block[idxOf.get((-c.q) + "," + (-c.r))].slice();
+      return block[i].slice();
     }
-  }
-  if(speedMode) for(let i=0;i<cells.length;i++) poly[i].classList.toggle("empty", red[i] && state[i]!==1);
-  updateMirrorMarkers();
-}
-function updateMirrorMarkers(){
-  for(let i=0;i<mirrorMarkers.length;i++){
-    const marker=mirrorMarkers[i];
-    if(!marker) continue;
-    marker.classList.toggle("hidden",speedMode);
-    let provesWaste=false;
-    if(!speedMode && state[i]===0){
-      provesWaste=mirrorGovernors[i].some(source=>clueSatisfied(clues[source]));
+
+    function buildCompleteClues(sol, kinds) {
+      const result = new Array(cells.length);
+      const order = shuffle(cells.map(c => c.idx));
+      const offset = Math.floor(Math.random() * kinds.length);
+      order.forEach((i, n) => {
+        const kind = kinds[(n + offset) % kinds.length];
+        const axis = randomAxis(i, kind);
+        const scope = clueScope(i, kind, axis);
+        let count = 0;
+        for (const j of scope) count += sol[j];
+        result[i] = { count, kind, axis, cells: scope };
+      });
+      return result;
     }
-    marker.textContent=provesWaste?"◆":"◇";
-    marker.classList.toggle("proven",provesWaste);
-  }
-}
-function renderCell(){ for(let i=0;i<cells.length;i++) paintCell(i); updateFades(); }
 
-// ---------- interaction ----------
-// tool = green | red | erase (for tap/left-click/drag). button: 0 = tool, 1 = clear, 2 = red.
-let dragging=false, dragApply=null, tool="green", hoveredCell=-1;
-function showScope(i){
-  if(i===hoveredCell) return;
-  for(const j of highlightedScope) poly[j].classList.remove("scope");
-  highlightedScope=[];
-  hoveredCell=i;
-  if(i<0 || clues[i]===null) return;
-  highlightedScope=clues[i].cells.slice();
-  for(const j of highlightedScope) poly[j].classList.add("scope");
-}
-function firstValue(i, button){
-  if(button===1) return 0;                                  // middle = clear
-  if(button===2) return speedMode ? 0 : (state[i]===2?0:2);  // right = red (or clear in speed)
-  if(tool==="erase") return 0;
-  if(tool==="red" && !speedMode) return state[i]===2?0:2;
-  return state[i]===1?0:1;                                   // green (also red-tool in speed)
-}
-function applyPaint(i, button){
-  if(solved) return;
-  if(dragApply===null) dragApply = firstValue(i, button);
-  state[i] = dragApply;
-  paintCell(i); updateFades();
-}
-boardEl.addEventListener("mousedown", e=>{
-  const t=e.target.closest("polygon"); if(!t) return;
-  e.preventDefault(); dragging=true; dragApply=null;
-  applyPaint(+t.dataset.idx, e.button);
-});
-boardEl.addEventListener("mouseover", e=>{
-  const t=e.target.closest("polygon");
-  if(!t){ showScope(-1); return; }
-  const i=+t.dataset.idx;
-  showScope(i);
-  if(dragging) applyPaint(i, 0);
-});
-boardEl.addEventListener("mouseleave", ()=>showScope(-1));
-window.addEventListener("mouseup", ()=>{ if(dragging){ dragging=false; afterMove(); } });
-boardEl.addEventListener("contextmenu", e=>e.preventDefault());
-function touchPoly(touch){
-  const el=document.elementFromPoint(touch.clientX, touch.clientY);
-  return el && el.closest("polygon");
-}
-boardEl.addEventListener("touchstart", e=>{
-  const t=touchPoly(e.touches[0]); if(!t) return;
-  e.preventDefault(); dragApply=null;
-  applyPaint(+t.dataset.idx, 0);
-},{passive:false});
-boardEl.addEventListener("touchmove", e=>{
-  const t=touchPoly(e.touches[0]); if(!t) return;
-  e.preventDefault();
-  applyPaint(+t.dataset.idx, 0);
-},{passive:false});
-boardEl.addEventListener("touchend", ()=> afterMove());
-
-// tool selector
-function setTool(t){
-  tool = t;
-  document.getElementById("tGreen").classList.toggle("on", t==="green");
-  document.getElementById("tRed").classList.toggle("on", t==="red");
-  document.getElementById("tErase").classList.toggle("on", t==="erase");
-}
-document.getElementById("tGreen").onclick = ()=> setTool("green");
-document.getElementById("tRed").onclick   = ()=> setTool("red");
-document.getElementById("tErase").onclick = ()=> setTool("erase");
-
-// ---------- win / progress ----------
-function setStatus(msg,cls){ statusEl.textContent=msg; statusEl.className=cls||""; }
-function boardComplete(){
-  for(let i=0;i<cells.length;i++){
-    if(speedMode){ if((state[i]===1?1:0) !== solution[i]) return false; }   // greens only
-    else { const want = solution[i]===1 ? 1 : 2; if(state[i]!==want) return false; } // every cell red/green
-  }
-  return true;
-}
-function afterMove(){ if(!solved && boardComplete()) reportWin(); }
-
-function reportWin(){
-  solved = true;
-  completed[currentTier] = true;
-  saveProgress();
-  buildLadder();
-  const t = TIERS[currentTier];
-  const tb = document.getElementById("transmute");
-  if(currentTier === TIERS.length-1){
-    setStatus("🜚 The Great Work is complete — you have made Gold!", "win");
-    tb.style.display = "none";
-  } else {
-    const next = TIERS[currentTier+1];
-    setStatus(`${t.name} perfected! Transmute to ${next.name}.`, "win");
-    tb.textContent = `Transmute → ${next.name} ${next.sym}`;
-    tb.style.display = "";
-  }
-}
-
-// ---------- ladder ----------
-function buildLadder(){
-  const lad = document.getElementById("ladder");
-  lad.innerHTML = "";
-  TIERS.forEach((t,i)=>{
-    const unlocked = i===0 || completed[i-1];
-    const div = document.createElement("div");
-    div.className = "tier" + (i===currentTier?" current":"") + (completed[i]?" done":"") + (unlocked?" unlocked":" locked");
-    div.style.color = unlocked ? t.color : "#555";
-    div.innerHTML = `<span class="g">${t.sym}</span><span class="tn">${t.name}</span>`;
-    if(unlocked) div.onclick = ()=>{ if(i!==currentTier || solved) startTier(i); };
-    lad.appendChild(div);
-    if(i<TIERS.length-1){
-      const a=document.createElement("span"); a.className="lad-arrow"; a.textContent="›"; lad.appendChild(a);
+    function stripClues(full) {
+      const working = full.slice();
+      const order = shuffle(cells.map(c => c.idx));
+      const protectedKinds = new Set(), protectedCells = new Set();
+      for (const i of order) {
+        const kind = working[i].kind;
+        if (!protectedKinds.has(kind)) {
+          protectedKinds.add(kind);
+          protectedCells.add(i);
+        }
+      }
+      for (const i of order) {
+        if (protectedCells.has(i)) continue;
+        const saved = working[i];
+        working[i] = null;
+        if (trySolve(working).res !== "solved") working[i] = saved;
+      }
+      return working;
     }
-  });
+
+    function buildOne(density, kinds) {
+      while (true) {
+        const sol = cells.map(() => Math.random() < density ? 1 : 0);
+        if (sol.every(x => x === 0) || sol.every(x => x === 1)) continue;
+        const full = buildCompleteClues(sol, kinds);
+        if (trySolve(full).res !== "solved") continue;
+        const working = stripClues(full);
+        return { sol, working };
+      }
+    }
+
+    function generate(radius, density, attempts, kinds) {
+      buildTopology(radius);
+      let best = null, bestCount = Infinity;
+      for (let a = 0; a < (attempts || 1); a++) {
+        const cand = buildOne(density, kinds);
+        const cnt = cand.working.reduce((s, x) => s + (x !== null ? 1 : 0), 0);
+        if (cnt < bestCount) { bestCount = cnt; best = cand; }
+      }
+      solution = best.sol;
+      clues = best.working;
+    }
+
+    function hexPoints(cx, cy, s) {
+      const pts = [];
+      for (let i = 0; i < 6; i++) {
+        const ang = Math.PI / 180 * (60 * i - 30);
+        pts.push((cx + s * Math.cos(ang)).toFixed(2) + "," + (cy + s * Math.sin(ang)).toFixed(2));
+      }
+      return pts.join(" ");
+    }
+
+    function clueLabel(clue) {
+      if (clue.kind === CLUE.HALO) return `○${clue.count}`;
+      if (clue.kind === CLUE.SPEAR) return `${SPEAR_GLYPHS[clue.axis]}${clue.count}`;
+      if (clue.kind === CLUE.FLOW) return `${FLOW_GLYPHS[clue.axis]}${clue.count}`;
+      if (clue.kind === CLUE.MIRROR) return `◇${clue.count}`;
+      return String(clue.count);
+    }
+
+    function clueTitle(clue) {
+      const label = clueLabel(clue);
+      if (clue.kind === CLUE.HALO) return `${label}: green neighbours; excludes this cell`;
+      if (clue.kind === CLUE.SPEAR) return `${label}: greens across this complete axis`;
+      if (clue.kind === CLUE.FLOW) return `${label}: greens ahead in the arrow's direction`;
+      if (clue.kind === CLUE.MIRROR) return `${label}: greens around the reflected cell across the centre`;
+      return `${label}: greens in this cell and its neighbours`;
+    }
+
+    function buildBoard() {
+      const s = R <= 2 ? 50 : R === 3 ? 42 : R === 4 ? 36 : R === 5 ? 31 : R === 6 ? 27
+          : R === 7 ? 24 : R === 8 ? 22 : R === 9 ? 20 : 18;
+      const curFont = Math.max(12, (s * 0.82) | 0);
+      const W = Math.sqrt(3) * s, H = 1.5 * s;
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      for (const c of cells) {
+        c.cx = W * (c.q + c.r / 2); c.cy = H * c.r;
+        minX = Math.min(minX, c.cx); maxX = Math.max(maxX, c.cx);
+        minY = Math.min(minY, c.cy); maxY = Math.max(maxY, c.cy);
+      }
+      const pad = s + 4, ox = pad - minX, oy = pad - minY;
+      const svgW = (maxX - minX) + 2 * pad, svgH = (maxY - minY) + 2 * pad;
+      boardEl.setAttribute("viewBox", `0 0 ${svgW.toFixed(1)} ${svgH.toFixed(1)}`);
+      boardEl.style.width = `min(calc(100% - 40px), ${svgW.toFixed(0)}px)`;
+      boardEl.innerHTML = ""; poly = []; txt = []; mirrorMarkers = [];
+      mirrorGovernors = cells.map(() => []);
+      highlightedScope = []; hoveredCell = -1;
+
+      for (const c of cells) {
+        const cx = c.cx + ox, cy = c.cy + oy;
+        c.drawX = cx; c.drawY = cy;
+        const p = document.createElementNS(SVG_NS, "polygon");
+        p.setAttribute("points", hexPoints(cx, cy, s - 1));
+        p.setAttribute("fill", "#232323");
+        p.dataset.idx = c.idx;
+        boardEl.appendChild(p);
+        poly[c.idx] = p;
+      }
+      for (const c of cells) {
+        const clue = clues[c.idx];
+        if (!clue) continue;
+        const ti = document.createElementNS(SVG_NS, "title");
+        ti.textContent = clueTitle(clue);
+        poly[c.idx].appendChild(ti);
+        const t = document.createElementNS(SVG_NS, "text");
+        t.setAttribute("x", c.drawX); t.setAttribute("y", c.drawY + 1);
+        t.setAttribute("text-anchor", "middle");
+        t.setAttribute("dominant-baseline", "central");
+        t.setAttribute("font-size", curFont);
+        t.textContent = clueLabel(clue);
+        t.classList.toggle("mirror", clue.kind === CLUE.MIRROR);
+        boardEl.appendChild(t);
+        txt[c.idx] = t;
+        if (clue.kind === CLUE.MIRROR) {
+          for (const governed of clue.cells) mirrorGovernors[governed].push(c.idx);
+        }
+      }
+      for (let i = 0; i < cells.length; i++) {
+        if (mirrorGovernors[i].length === 0) continue;
+        const c = cells[i], marker = document.createElementNS(SVG_NS, "text");
+        marker.setAttribute("x", c.drawX + s * 0.30);
+        marker.setAttribute("y", c.drawY - s * 0.48);
+        marker.setAttribute("text-anchor", "middle");
+        marker.setAttribute("dominant-baseline", "central");
+        marker.setAttribute("font-size", Math.max(9, Math.round(curFont * 0.55)));
+        marker.classList.add("mirror-marker");
+        marker.textContent = "◇";
+        boardEl.appendChild(marker);
+        mirrorMarkers[i] = marker;
+      }
+      renderCell();
+    }
+
+    function paintCell(i) {
+      const p = poly[i];
+      p.classList.toggle("filled", state[i] === 1);
+      p.classList.toggle("empty", state[i] === 2);
+      p.classList.remove("bad");
+    }
+
+    function greenCount(clue) {
+      let count = 0;
+      for (const j of clue.cells) if (state[j] === 1) count++;
+      return count;
+    }
+
+    function clueSatisfied(clue) { return greenCount(clue) === clue.count; }
+    function mirrorResolved(clue) { return gameState.settings.speedMode || clue.cells.every(j => state[j] !== 0); }
+
+    function updateFades() {
+      const red = new Array(cells.length).fill(false);
+      for (let i = 0; i < cells.length; i++) {
+        const clue = clues[i];
+        if (!clue) continue;
+        const g = greenCount(clue);
+        const done = g === clue.count && (clue.kind !== CLUE.MIRROR || mirrorResolved(clue));
+        txt[i].classList.toggle("done", done);
+        txt[i].classList.toggle("over", g > clue.count);
+        if (gameState.settings.speedMode && g === clue.count) {
+          for (const j of clue.cells) if (state[j] !== 1) red[j] = true;
+        }
+      }
+      if (gameState.settings.speedMode) {
+        for (let i = 0; i < cells.length; i++) poly[i].classList.toggle("empty", red[i] && state[i] !== 1);
+      }
+      updateMirrorMarkers();
+    }
+
+    function updateMirrorMarkers() {
+      for (let i = 0; i < mirrorMarkers.length; i++) {
+        const marker = mirrorMarkers[i];
+        if (!marker) continue;
+        marker.classList.toggle("hidden", gameState.settings.speedMode);
+        let provesWaste = false;
+        if (!gameState.settings.speedMode && state[i] === 0) {
+          provesWaste = mirrorGovernors[i].some(source => clueSatisfied(clues[source]));
+        }
+        marker.textContent = provesWaste ? "◆" : "◇";
+        marker.classList.toggle("proven", provesWaste);
+      }
+    }
+
+    function renderCell() { for (let i = 0; i < cells.length; i++) paintCell(i); updateFades(); }
+
+    // ---------- Interaction ----------
+
+    function showScope(i) {
+      if (i === hoveredCell) return;
+      for (const j of highlightedScope) poly[j].classList.remove("scope");
+      highlightedScope = [];
+      hoveredCell = i;
+      if (i < 0 || !clues[i]) return;
+      highlightedScope = clues[i].cells.slice();
+      for (const j of highlightedScope) poly[j].classList.add("scope");
+    }
+
+    function firstValue(i, button) {
+      if (button === 1) return 0;
+      if (button === 2) return gameState.settings.speedMode ? 0 : (state[i] === 2 ? 0 : 2);
+      if (tool === "erase") return 0;
+      if (tool === "red" && !gameState.settings.speedMode) return state[i] === 2 ? 0 : 2;
+      return state[i] === 1 ? 0 : 1;
+    }
+
+    function applyPaint(i, button) {
+      if (gameState.currentPuzzle.solved) return;
+      if (dragApply === null) dragApply = firstValue(i, button);
+      state[i] = dragApply;
+      paintCell(i); updateFades();
+    }
+
+    boardEl.addEventListener("mousedown", e => {
+      const t = e.target.closest("polygon"); if (!t) return;
+      e.preventDefault(); dragging = true; dragApply = null;
+      applyPaint(+t.dataset.idx, e.button);
+    });
+    boardEl.addEventListener("mouseover", e => {
+      const t = e.target.closest("polygon");
+      if (!t) { showScope(-1); return; }
+      const i = +t.dataset.idx;
+      showScope(i);
+      if (dragging) applyPaint(i, 0);
+    });
+    boardEl.addEventListener("mouseleave", () => showScope(-1));
+    window.addEventListener("mouseup", () => { if (dragging) { dragging = false; afterMove(); } });
+    boardEl.addEventListener("contextmenu", e => e.preventDefault());
+
+    function touchPoly(touch) {
+      const el = document.elementFromPoint(touch.clientX, touch.clientY);
+      return el && el.closest("polygon");
+    }
+    boardEl.addEventListener("touchstart", e => {
+      const t = touchPoly(e.touches[0]); if (!t) return;
+      e.preventDefault(); dragApply = null;
+      applyPaint(+t.dataset.idx, 0);
+    }, { passive: false });
+    boardEl.addEventListener("touchmove", e => {
+      const t = touchPoly(e.touches[0]); if (!t) return;
+      e.preventDefault();
+      applyPaint(+t.dataset.idx, 0);
+    }, { passive: false });
+    boardEl.addEventListener("touchend", () => afterMove());
+
+    function setTool(t) {
+      tool = t;
+      document.getElementById("tGreen").classList.toggle("on", t === "green");
+      document.getElementById("tRed").classList.toggle("on", t === "red");
+      document.getElementById("tErase").classList.toggle("on", t === "erase");
+    }
+
+    // ---------- Win / Progress ----------
+
+    function setStatus(msg, cls) { statusEl.textContent = msg; statusEl.className = cls || ""; }
+
+    function boardComplete() {
+      for (let i = 0; i < cells.length; i++) {
+        if (gameState.settings.speedMode) {
+          if ((state[i] === 1 ? 1 : 0) !== solution[i]) return false;
+        } else {
+          const want = solution[i] === 1 ? 1 : 2;
+          if (state[i] !== want) return false;
+        }
+      }
+      return true;
+    }
+
+    function afterMove() { if (!gameState.currentPuzzle.solved && boardComplete()) reportWin(); }
+
+    function reportWin() {
+      gameState.currentPuzzle.solved = true;
+      setStatus("Success! Transmutation complete.", "win");
+      
+      // Award resources
+      addResource("prima_materia", cells.length * 0.5);
+      if (gameState.currentPuzzle.radius >= 4) addResource("sulfur", 1);
+      if (gameState.currentPuzzle.radius >= 6) addResource("mercury", 1);
+      if (gameState.currentPuzzle.radius >= 8) addResource("salt", 1);
+      
+      updateUI();
+      saveProgress();
+    }
+
+    // ---------- Game Operations ----------
+
+    function addResource(name, amount) {
+      if (gameState.resources[name] !== undefined) {
+        gameState.resources[name] += amount;
+      }
+    }
+
+    function startPuzzle() {
+      gameState.currentPuzzle.solved = false;
+      const p = gameState.currentPuzzle;
+      const kinds = ["surround"];
+      const discoveryIdx = gameState.upgrades.clue_discovery.index;
+      const allKinds = [CLUE.SURROUND, CLUE.HALO, CLUE.SPEAR, CLUE.FLOW, CLUE.MIRROR];
+      for(let i=0;i<=discoveryIdx;i++) kinds.push(allKinds[i]);
+
+      generate(p.radius, p.density, p.attempts, kinds);
+      state = cells.map(() => 0);
+      buildBoard();
+      setStatus("New puzzle forged.", "info");
+      updateUI();
+    }
+
+    function upgradeBoard() {
+      const cost = gameState.upgrades.board_size.cost;
+      if (gameState.resources.prima_materia >= cost) {
+        gameState.resources.prima_materia -= cost;
+        gameState.upgrades.board_size.radius += 1;
+        gameState.upgrades.board_size.cost = Math.floor(cost * 1.6);
+        gameState.currentPuzzle.radius = gameState.upgrades.board_size.radius;
+        startPuzzle();
+        updateUI();
+      } else {
+        setStatus("Not enough Prima Materia.", "err");
+      }
+    }
+
+    function upgradeClues() {
+      const cost = gameState.upgrades.clue_discovery.cost;
+      if (gameState.resources.prima_materia >= cost) {
+        gameState.resources.prima_materia -= cost;
+        gameState.upgrades.clue_discovery.index++;
+        gameState.upgrades.clue_discovery.cost = Math.floor(cost * 2.5);
+        startPuzzle();
+        updateUI();
+      } else {
+        setStatus("Not enough Prima Materia.", "err");
+      }
+    }
+
+    function buyTech(techId) {
+      const tech = getTechById(techId);
+      if (!tech) return;
+      
+      // Check requirement
+      const reqs = tech.req;
+      for(const r of reqs) if(!gameState.techTree[r]) {
+        setStatus(`Requires ${getTechById(r).name}`, "err");
+        return;
+      }
+
+      // Check cost
+      for(const [res, amount] of Object.entries(tech.cost)) {
+        if(gameState.resources[res] < amount) {
+          setStatus(`Not enough ${res.replace('_',' ')}`, "err");
+          return;
+        }
+      }
+
+      // Purchase
+      for(const [res, amount] of Object.entries(tech.cost)) {
+        gameState.resources[res] -= amount;
+      }
+      gameState.techTree[techId] = true;
+      setStatus(`${tech.name} achieved!`, "win");
+      updateUI();
+      saveProgress();
+    }
+
+    function getTechById(id) {
+      const techs = [
+        { id: "calcination", name: "Calcination", desc: "Reduce impurities.", cost: { prima_materia: 500 }, req: [] },
+        { id: "distillation", name: "Distillation", desc: "Purify the essence.", cost: { sulfur: 50 }, req: ["calcination"] },
+        { id: "sublimation", name: "Sublimation", desc: "Ascend to a higher state.", cost: { mercury: 50 }, req: ["distillation"] },
+        { id: "conjunction", name: "Conjunction", desc: "Unite the opposites.", cost: { salt: 50 }, req: ["sublimation"] },
+        { id: "philosophers_stone", name: "The Philosopher's Stone", desc: "The Magnum Opus.", cost: { quintessence: 10 }, req: ["conjunction"] }
+      ];
+      return techs.find(t => t.id === id);
+    }
+
+    // ---------- Transmutation Implementation ----------
+
+    function transmute(type, id) {
+      const recipe = type === 'metal' ? METAL_RECIPES[id] : ELEMENT_RECIPES[id];
+      if (!recipe) return;
+
+      // Check cost
+      for (const [res, amt] of Object.entries(recipe.cost)) {
+        if (gameState.resources[res] < amt) {
+          setStatus(`Not enough ${res.replace('_', ' ')}`, "err");
+          return;
+        }
+      }
+
+      // Deduct and Add
+      for (const [res, amt] of Object.entries(recipe.cost)) {
+        gameState.resources[res] -= amt;
+      }
+
+      if (type === 'metal') gameState.metals[id].amount++;
+      else gameState.elements[id].amount++;
+
+      setStatus(`Transmuted ${id}!`, "win");
+      updateUI();
+      saveProgress();
+    }
+
+    // ---------- UI Management ----------
+
+    function updateUI() {
+      renderResources();
+      renderUpgrades();
+      renderTechTree();
+      renderTransmutation();
+    }
+
+    function renderResources() {
+      resListEl.innerHTML = "";
+      // Render basic resources
+      for (const [id, data] of Object.entries(gameState.resources)) {
+        if (data.amount > 0 || id === "prima_materia") {
+          const div = document.createElement("div");
+          div.className = "resource-item";
+          div.innerHTML = `
+            <span class="resource-name" style="color:${data.color || 'inherit'}">${data.name}</span>
+            <span class="resource-val">${Math.floor(data.amount)}</span>
+          `;
+          resListEl.appendChild(div);
+        }
+      }
+      // Render metals
+      const metalHeader = document.createElement("div");
+      metalHeader.className = "panel-header";
+      metalHeader.style.marginTop = "20px";
+      metalHeader.style.padding = "5px 0";
+      metalHeader.textContent = "Metals";
+      resListEl.appendChild(metalHeader);
+      for (const [id, data] of Object.entries(gameState.metals)) {
+        if (data.amount > 0) {
+          const div = document.createElement("div");
+          div.className = "resource-item";
+          div.innerHTML = `
+            <span class="resource-name">${data.sym} ${data.name}</span>
+            <span class="resource-val">${data.amount}</span>
+          `;
+          resListEl.appendChild(div);
+        }
+      }
+      // Render elements
+      const elemHeader = document.createElement("div");
+      elemHeader.className = "panel-header";
+      elemHeader.style.marginTop = "20px";
+      elemHeader.style.padding = "5px 0";
+      elemHeader.textContent = "Elements";
+      resListEl.appendChild(elemHeader);
+      for (const [id, data] of Object.entries(gameState.elements)) {
+        if (data.amount > 0) {
+          const div = document.createElement("div");
+          div.className = "resource-item";
+          div.innerHTML = `
+            <span class="resource-name">${data.sym} ${data.name}</span>
+            <span class="resource-val">${data.amount}</span>
+          `;
+          resListEl.appendChild(div);
+        }
+      }
+    }
+
+    function renderUpgrades() {
+      upgradeListEl.innerHTML = "";
+      
+      // Board Size Upgrade
+      const boardCost = gameState.upgrades.board_size.cost;
+      const bDiv = document.createElement("div");
+      bDiv.className = "tech-item";
+      bDiv.innerHTML = `
+        <span class="tech-name">Expand Crucible</span>
+        <span class="tech-desc">Increase radius to ${gameState.upgrades.board_size.radius}</span>
+        <span class="tech-cost">${boardCost} Prima Materia</span>
+        <button class="tech-btn primary" id="btn-upgrade-board">Upgrade</button>
+      `;
+      upgradeListEl.appendChild(bDiv);
+      document.getElementById("btn-upgrade-board").onclick = upgradeBoard;
+
+      // Clue Discovery Upgrade
+      const clueCost = gameState.upgrades.clue_discovery.cost;
+      const cDiv = document.createElement("div");
+      cDiv.className = "tech-item";
+      cDiv.innerHTML = `
+        <span class="tech-name">Unlock Clue Variants</span>
+        <span class="tech-desc">New patterns...</span>
+        <span class="tech-cost">${clueCost} Prima Materia</span>
+        <button class="tech-btn primary" id="btn-upgrade-clues">Upgrade</button>
+      `;
+      upgradeListEl.appendChild(cDiv);
+      document.getElementById("btn-upgrade-clues").onclick = upgradeClues;
+    }
+
+    function renderTechTree() {
+      techListEl.innerHTML = "";
+      const techs = [
+        { id: "calcination", name: "Calcination", desc: "Reduce impurities.", cost: { prima_materia: 500 }, req: [] },
+        { id: "distillation", name: "Distillation", desc: "Purify the essence.", cost: { sulfur: 50 }, req: ["calcination"] },
+        { id: "sublimation", name: "Sublimation", desc: "Ascend to a higher state.", cost: { mercury: 50 }, req: ["distillation"] },
+        { id: "conjunction", name: "Conjunction", desc: "Unite the opposites.", cost: { salt: 50 }, req: ["sublimation"] },
+        { id: "philosophers_stone", name: "The Philosopher's Stone", desc: "The Magnum Opus.", cost: { quintessence: 10 }, req: ["conjunction"] }
+      ];
+
+      techs.forEach(t => {
+        const isUnlocked = gameState.techTree[t.id];
+        const isAvailable = t.req.every(r => gameState.techTree[r]);
+        
+        const div = document.createElement("div");
+        div.className = "tech-item" + (isUnlocked ? " unlocked" : (isAvailable ? "" : " locked"));
+        
+        let costStr = "";
+        for(const [res, amt] of Object.entries(t.cost)) costStr += `${amt} ${res.replace('_',' ')} `;
+
+        div.innerHTML = `
+          <span class="tech-name">${t.name} ${isUnlocked ? "✓" : ""}</span>
+          <span class="tech-desc">${t.desc}</span>
+          ${!isUnlocked ? `<span class="tech-cost">${costStr}</span>` : ""}
+          ${!isUnlocked && isAvailable ? `<button class="tech-btn primary" id="btn-tech-${t.id}">Perform</button>` : ""}
+        `;
+        techListEl.appendChild(div);
+        
+        if (!isUnlocked && isAvailable) {
+          document.getElementById(`btn-tech-${t.id}`).onclick = () => buyTech(t.id);
+        }
+      });
+    }
+
+    function renderTransmutation() {
+      transmuteListEl.innerHTML = "";
+      
+      // Metals
+      const mHeader = document.createElement("div");
+      mHeader.className = "panel-header";
+      mHeader.style.marginTop = "10px";
+      mHeader.style.padding = "5px 0";
+      mHeader.textContent = "Transmute Metals";
+      transmuteListEl.appendChild(mHeader);
+
+      for (const [id, data] of Object.entries(gameState.metals)) {
+        const recipe = METAL_RECIPES[id];
+        const div = document.createElement("div");
+        div.className = "tech-item";
+        let costStr = "";
+        for(const [res, amt] of Object.entries(recipe.cost)) costStr += `${amt} ${res.replace('_',' ')} `;
+        div.innerHTML = `
+          <span class="tech-name">${data.sym} ${data.name}</span>
+          <span class="tech-cost">${costStr}</span>
+          <button class="transmute-btn" id="transmute-m-${id}">Transmute</button>
+        `;
+        transmuteListEl.appendChild(div);
+        document.getElementById(`transmute-m-${id}`).onclick = () => transmute('metal', id);
+      }
+
+      // Elements
+      const eHeader = document.createElement("div");
+      eHeader.className = "panel-header";
+      eHeader.style.marginTop = "10px";
+      eHeader.style.padding = "5px 0";
+      eHeader.textContent = "Transmute Elements";
+      transmuteListEl.appendChild(eHeader);
+
+      for (const [id, data] of Object.entries(gameState.elements)) {
+        const recipe = ELEMENT_RECIPES[id];
+        const div = document.createElement("div");
+        div.className = "tech-item";
+        let costStr = "";
+        for(const [res, amt] of Object.entries(recipe.cost)) costStr += `${amt} ${res.replace('_',' ')} `;
+        div.innerHTML = `
+          <span class="tech-name">${data.sym} ${data.name}</span>
+          <span class="tech-cost">${costStr}</span>
+          <button class="transmute-btn" id="transmute-e-${id}">Transmute</button>
+        `;
+        transmuteListEl.appendChild(div);
+        document.getElementById(`transmute-e-${id}`).onclick = () => transmute('element', id);
+      }
+    }
+
+// ---------- Persistence ----------
+
+function saveProgress() {
+  try { localStorage.setItem("greatwork_v2", JSON.stringify(gameState)); } catch(e) {}
 }
 
-// ---------- buttons ----------
-document.getElementById("new").onclick = ()=> startTier(currentTier);
-document.getElementById("transmute").onclick = ()=>{ if(currentTier<TIERS.length-1) startTier(currentTier+1); };
-document.getElementById("speed").onchange = (e)=>{
-  speedMode = e.target.checked;
-  if(speedMode){ for(let i=0;i<cells.length;i++) if(state[i]===2) state[i]=0; setTool("green"); }  // drop manual reds
-  solved=false; renderCell(); afterMove(); saveProgress();
-  setStatus(speedMode ? "Speed mode on — leftovers auto-fill red; win on correct greens."
-                      : "Manual mode — mark reds yourself; fill every hex to transmute.","info");
-};
-document.getElementById("reset").onclick = ()=>{
-  if(solved) return;
-  state=cells.map(()=>0); renderCell(); setStatus("Board cleared.","info");
-};
-document.getElementById("solve").onclick = ()=>{
-  for(let i=0;i<cells.length;i++) state[i]= solution[i]===1 ? 1 : (speedMode ? 0 : 2);
-  solved=true; renderCell();
-  setStatus("Solution revealed — this won't transmute. Hit New Board to earn the tier.","info");
-};
-document.getElementById("check").onclick = ()=>{
-  if(boardComplete()){ if(!solved) reportWin(); return; }
+function loadProgress() {
+  try {
+    const d = JSON.parse(localStorage.getItem("greatwork_v2"));
+    if (d) {
+      // Merge loaded state with defaults to handle schema updates
+      gameState = { ...gameState, ...d };
+      gameState.resources = { ...gameState.resources, ...d.resources };
+      gameState.metals = { ...gameState.metals, ...d.metals };
+      gameState.elements = { ...gameState.elements, ...d.elements };
+      gameState.upgrades = { ...gameState.upgrades, ...d.upgrades };
+      gameState.techTree = { ...gameState.techTree, ...d.techTree };
+      gameState.settings = { ...gameState.settings, ...d.settings };
+      gameState.currentPuzzle = { ...gameState.currentPuzzle, ...d.currentPuzzle };
+    }
+  } catch(e) { console.error(e); }
+}
+
+// ---------- Initialization ----------
+
+document.getElementById("new-board").onclick = startPuzzle;
+document.getElementById("check-board").onclick = () => {
+  if(boardComplete()) { if(!gameState.currentPuzzle.solved) reportWin(); return; }
   let bad=0;
   for(let i=0;i<cells.length;i++){
     poly[i].classList.remove("bad");
     if(state[i]===1 && solution[i]===0){ poly[i].classList.add("bad"); bad++; }
   }
-  setStatus(bad? `${bad} green hex(es) are wrong (outlined red).` : "No mistakes so far — but not finished.", bad?"err":"info");
+  setStatus(bad? `${bad} mistakes detected.` : "No mistakes so far.", bad?"err":"info");
 };
-document.getElementById("resetprog").onclick = (e)=>{
-  e.preventDefault();
-  completed = TIERS.map(()=>false);
-  currentTier = 0;
-  saveProgress();
-  startTier(0);
+document.getElementById("reset-board").onclick = () => {
+  if(gameState.currentPuzzle.solved) return;
+  state = cells.map(()=>0); renderCell(); setStatus("Board cleared.", "info");
+};
+document.getElementById("solve-board").onclick = () => {
+  for(let i=0;i<cells.length;i++) state[i]= solution[i]===1 ? 1 : (gameState.settings.speedMode ? 0 : 2);
+  gameState.currentPuzzle.solved = true; renderCell();
+  setStatus("Solution revealed.", "info");
+};
+document.getElementById("speed-mode").onchange = (e) => {
+  gameState.settings.speedMode = e.target.checked;
+  if(gameState.settings.speedMode){ 
+    for(let i=0;i<cells.length;i++) if(state[i]===2) state[i]=0; 
+    setTool("green"); 
+  }
+  renderCell();
+  setStatus(gameState.settings.speedMode ? "Fast Mode: leftovers auto-fill red." : "Manual Mode: mark reds yourself.", "info");
 };
 
-// ---------- start a tier ----------
-function startTier(idx){
-  currentTier = idx;
-  tierColor = TIERS[idx].color;
-  document.getElementById("transmute").style.display = "none";
-  buildLadder();
-  setStatus(`Forging ${TIERS[idx].name}…`, "info");
-  setTimeout(()=>{
-    const t = TIERS[idx];
-    generate(t.radius, t.density, t.attempts, t.kinds);
-    state = cells.map(()=>0); solved=false;
-    buildBoard();
-    saveProgress();
-    const shown = clues.filter(x=>x!==null).length;
-    const languages=[...new Set(clues.filter(Boolean).map(c=>c.kind))].length;
-    setStatus(`${t.name} tier — ${cells.length} hexes, ${shown} clues, ${languages} clue language${languages===1?"":"s"}.`, "info");
-  }, 20);
-}
+document.getElementById("tGreen").onclick = ()=> setTool("green");
+document.getElementById("tRed").onclick   = ()=> setTool("red");
+document.getElementById("tErase").onclick = ()=> setTool("erase");
 
-// ---------- persistence ----------
-function saveProgress(){
-  try { localStorage.setItem("greatwork", JSON.stringify({ completed, current: currentTier, speed: speedMode })); } catch(e){}
-}
-function loadProgress(){
-  try {
-    const d = JSON.parse(localStorage.getItem("greatwork"));
-    if(d && Array.isArray(d.completed)){
-      completed = TIERS.map((_,i)=> !!d.completed[i]);
-      currentTier = Math.min(Math.max(0, d.current|0), TIERS.length-1);
-      speedMode = !!d.speed;
-    }
-  } catch(e){}
-  document.getElementById("speed").checked = speedMode;
+function setTool(t) {
+  tool = t;
+  document.getElementById("tGreen").classList.toggle("on", t==="green");
+  document.getElementById("tRed").classList.toggle("on", t==="red");
+  document.getElementById("tErase").classList.toggle("on", t==="erase");
 }
 
 loadProgress();
-startTier(currentTier);
+startPuzzle();
+updateUI();
+
 </script>
 </body>
 </html>
