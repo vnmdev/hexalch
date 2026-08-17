@@ -16,7 +16,9 @@ The deduction rules are unchanged: they operate on each definition's `cells` sco
 
 In deliberate mode, Mirror-governed cells carry a faint `◇`; it becomes `◆` when a satisfied Mirror proves that unknown cell is waste. A Mirror clue does not fade until every cell in its remote scope has been explicitly classified. Speed mode hides these dependency marks and performs the waste deduction automatically.
 
-Flow and spear clues carry a **live badge** next to the glyph: `remaining = count − greens painted` (painted + badge = the count, so a player can always see exactly how many more greens the scope needs). Gold when `remaining` equals the unknowns in scope — those cells are then dashed-outlined as **forced moves** (the next valid move); green ✓ when satisfied; red ! when overfilled.
+Flow and spear clues carry a **live badge** next to the glyph: `remaining = count − greens painted` (painted + badge = the count, so a player can always see exactly how many more greens the scope needs). Gold when `remaining` equals the **live unknowns** in scope — those cells are then dashed-outlined as **forced moves** (the next valid move); green ✓ when satisfied; red ! when overfilled. A *live unknown* is an uncolored cell that is not yet proven non-green: in fast mode the auto-faded cells (satisfied clues' leftover scopes) still hold state 0, so `updateFades` runs two passes — pass 1 computes the proven-red set, pass 2 counts live unknowns as `state 0 AND NOT proven-red`. Without the split, a line/arrow clue with one tile left was never highlighted mid-deduction in fast mode, because the faded-but-uncolored cells were counted as unknowns.
+
+**Glyph icons** come from the provided sprite pack `assets/sprites/hex-alchemist-icons_4/source/` (the `source/` variant is the currentColor set for web use; `godot/` is white-for-tinting, `affinity/` is the coloured gradient set). The inner shapes of the 16 used glyphs are inlined in `ICON_SVGS` so the game stays a single file; `svgWrap()` supplies the shared 100×100 viewBox and `iconHtml(id, size, color)` renders one. Mapping: prima materia→alkahest, the five elements→themselves, the five metals→themselves, nigredo→black-mercury, albedo→salt, citrinitas→sulfur, rubedo→philosophers-sulfur, Philosopher's Stone→philosophers-stone-iv (also the Magnum Opus banner icon, set in `celebrateMagnumOpus`). Icons appear on ledger rows, transmutation rows, tech-tree rows, generator rows, the recipe line, and the opus banner; `currentColor` means they inherit the row's text colour.
 
 ## Call chain
 ```
@@ -163,7 +165,8 @@ transmutation engine**. This section is the reference for that layer.
   mechanics** — clue etching, pre-inscription, flow/mirror unlocks,
   deducibility (U17) — **real-time button flips** (U18), and **flow/
   spear badges** — remaining count, paint tracking, forced-move outline
-  (U20).
+  (U20) — plus the **fast-mode last-tile highlight** for one-unknown
+  line/arrow clues (U21).
 - **Simulation**: a greedy player solves on a per-radius interval that
   **shrinks with inscription** (`base * 0.95^etched clues`, floor 30 s),
   upgrades the crucible, **buys inscription whenever affordable**, buys
@@ -172,6 +175,6 @@ transmutation engine**. This section is the reference for that layer.
   levels), detects stalls (no progress in 10 min), and asserts: no
   soft-locks, stone within 2 h, first iron within 10 m, first gold
   within 90 m, crucible fully expanded, inscription ≥ level 2 by the
-  stone (the entanglement actually fires). Verified: 5/5 runs finish,
-  stone averages ~81 m.
+  stone (the entanglement actually fires). Verified: 10/10 runs finish,
+  stone max 82 m, averages ~81 m 35 s.
 - **Run:** `bun run pacing-test.mjs [--runs N]`.

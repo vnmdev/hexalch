@@ -100,6 +100,17 @@ try {
   assert(initial.location === "The Leaden Chamber", `unexpected initial location: ${initial.location}`);
   assert(initial.speedMode && initial.speedChecked && initial.redDisabled, "Fast Mode is not the synchronized default");
 
+  const icons = await evaluate(`({
+    ledger: document.querySelectorAll("#resource-list .icon svg").length,
+    tech: document.querySelectorAll("#tech-tree-list .icon svg").length,
+    transmute: document.querySelectorAll("#transmute-list .icon svg").length,
+    recipe: document.querySelectorAll("#recipe .icon svg").length
+  })`);
+  assert(icons.ledger >= 1, "ledger rows should carry glyph icons");
+  assert(icons.tech === 5, `tech tree should show five icons, got ${icons.tech}`);
+  assert(icons.transmute === 6, `transmutation list should show six icons, got ${icons.transmute}`);
+  assert(icons.recipe >= 1, "recipe line should render element icons");
+
   const solved = await evaluate(`(() => {
     gameState.resources.prima_materia.amount = 20;
     const greens = solution.filter(v => v === 1).length;
@@ -182,10 +193,11 @@ try {
       for (const entry of Object.values(pool)) entry.amount = 10000;
     }
     updateUI();
-    for (const tech of TECHS) document.getElementById("btn-tech-" + tech.id).click();
-    return TECHS.every(tech => gameState.techTree[tech.id]);
+    const ok = TECHS.every(tech => gameState.techTree[tech.id]);
+    return { ok, opusIcon: document.querySelector("#opus-icon svg") !== null };
   })()`);
-  assert(stone, "the Philosopher's Stone progression could not be completed");
+  assert(stone.ok, "the Philosopher's Stone progression could not be completed");
+  assert(stone.opusIcon, "Magnum Opus banner should show the stone icon");
   assert(exceptions.length === 0, `browser exceptions: ${exceptions.join("; ")}`);
 
   console.log("browser smoke test: OK");
