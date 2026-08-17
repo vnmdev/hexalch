@@ -471,6 +471,42 @@ function runUnitChecks() {
     check("U20e forced cell outlined", polyAt(t).classList.contains("forced"));
     check("U20f badge shows the last needed green", badge.dataset.remaining === "1");
   }
+  // U21: fast mode — when a line/arrow clue has exactly one live tile left,
+  // that tile is highlighted even though the other in-scope cells are only
+  // proven non-green (faded, still state 0) rather than painted.
+  {
+    const { G, env } = launchGame(26);
+    const gs = G.gameState;
+    gs.upgrades.board_size.radius = 5; gs.currentPuzzle.radius = 5;
+    gs.resources.prima_materia.amount = 100000;
+    G.startPuzzle();
+    const board = env.byId.get("board");
+    const polyAt = idx => board.children.find(c => c.tagName === "POLYGON" && +c.dataset.idx === idx);
+    // Find a flow/spear clue with a green t such that painting every other
+    // green on the board leaves exactly one live tile (t) in its scope: all
+    // other in-scope cells become proven red via the now-satisfied clues.
+    let found = null;
+    outer:
+    for (const c of G.clues) {
+      if (!c || (c.kind !== G.CLUE.SPEAR && c.kind !== G.CLUE.FLOW) || c.count === 0) continue;
+      for (const t of c.cells) {
+        if (G.solution[t] !== 1) continue;
+        const red = new Array(G.cells.length).fill(false);
+        for (const c2 of G.clues) {
+          if (!c2 || c2.cells.includes(t)) continue;
+          const g = c2.cells.filter(j => G.solution[j] === 1).length;
+          if (g === c2.count) for (const j of c2.cells) if (G.solution[j] !== 1) red[j] = true;
+        }
+        const live = c.cells.filter(j => j === t || (G.solution[j] === 0 && !red[j]));
+        if (live.length === 1) { found = { c, t }; break outer; }
+      }
+    }
+    check("U21a one-tile-left situation exists on the board", !!found);
+    if (found) {
+      for (let i = 0; i < G.cells.length; i++) if (G.solution[i] === 1 && i !== found.t) G.setCell(i, 1);
+      check("U21b last tile outlined in fast mode", polyAt(found.t).classList.contains("forced"));
+    }
+  }
 }
 
 // ---------- Pacing simulation ----------
