@@ -61,3 +61,68 @@ Trace a puzzle from "click a tier" down to "two cells get force-flagged green," 
 - **Rebuild rendering native** (don't port the SVG/DOM layer).
 - **Generator is just-in-time** per the roadmap: *game-feel-first* — bake the existing JS puzzles as **data** first, build the clickable hex grid, and only port `buildOne`/`deduce` when live generation is actually needed.
 - **Rebuilding from this map IS the anti-atrophy rep** — if I can reconstruct the engine in Godot from these notes, I own it.
+
+## Economy & progression (2026-08-17)
+
+The campaign in `index.html` wraps the engine above in an incremental
+economy. The board is no longer just a puzzle to clear — **it is the
+transmutation engine**. This section is the reference for that layer.
+
+### Resources
+- **Prima Materia** — the base resource. Gathered two ways:
+  - **`BASE_GATHER = 0.5/s`** always (the alchemist's own hands). This
+    floor also removes the level-0 soft-lock: a solve can spend your
+    entire stash, but base income means you can always recover.
+  - **Generators** (`GENERATORS`), bought with prima, unlocked by
+    crucible radius: `extractor` (prima, R3), `earth_well` (R4),
+    `water_well` (R5), `air_vent` (R6), `fire_furnace` (R7). Rate =
+    `baseRate * 1.5^(level-1)`; cost = `floor(baseCost * 1.8^level)`.
+- **Elements** — earth / water / air / fire / quintessence. The four
+  classical elements come **out of solved puzzles** (below); only
+  quintessence is still distilled by hand (10 of each element).
+- **Metals** — lead / iron / copper / silver / gold, transmuted in the
+  Alembic (`METAL_RECIPES`), each cross-pool (e.g. copper needs iron +
+  fire).
+
+### The feed economy (`setCell`)
+- Painting a cell **green feeds it 1 prima**. No prima ⇒ the paint is
+  refused (`setCell` returns `false`).
+- Changing a fed cell back to empty, or **Reset**, **refunds** each fed
+  cell 1:1.
+- **Reveal** is a free peek: it sets `solved` without feeding and
+  grants **nothing**.
+
+### A solve is a transmutation (`reportWin`)
+- On a completed pattern, the crucible releases the **elements its
+  current radius knows**: `ELEMENTS_BY_RADIUS` — R3 earth; R4 +water;
+  R5 +air; R6/R7 +fire.
+- Yield per element = `transmuteYield(greens) = max(1, round(greens/10))`,
+  so a bigger board (more green cells) releases more. The win banner and
+  the `#recipe` line state the feed cost and expected output up front.
+
+### Progression
+- **Crucible radius** (`upgrades.board_size`, max `MAX_RADIUS=7`) is the
+  master gate: it sizes the board, unlocks locations, clue kinds
+  (`CLUE_BY_RADIUS`), elements per solve, and generator slots.
+- **Tech tree** (`TECHS`) refines the work: nigredo → albedo →
+  citrinitas → rubedo → **philosophers_stone**, each costing metals +
+  elements. Forging the Stone raises the **Magnum Opus** gold overlay
+  (`celebrateMagnumOpus`) with a *Continue the Work* button into endless
+  mode.
+- Save slot `greatwork_v3` (bumped when the economy shape changed);
+  `loadProgress` merges every pool with defaults.
+
+### Pacing harness (`pacing-test.mjs`)
+- Runs the **real** `<script>` headlessly: a minimal DOM stub, a seeded
+  `Math.random`, and `tick()` driven by the second (timers are captured,
+  never fired, so the sim is deterministic).
+- **Unit checks** lock the feed economy (cost, refund, no-feed lockout,
+  tick income, per-radius yields, reveal-gives-nothing, reset refunds,
+  win feedback, Magnum Opus overlay).
+- **Simulation**: a greedy player solves on a per-radius interval,
+  upgrades the crucible when affordable, buys generators, follows the
+  metal recipe chain for the next tech, and buys techs. It reports a
+  milestone timeline, detects stalls (no progress in 10 min), and asserts
+  pacing: no soft-locks, stone within 2 h, first iron within 10 m, first
+  gold within 90 m. Verified: 5/5 runs finish, stone averages ~90 m.
+- **Run:** `bun run pacing-test.mjs [--runs N]`.
