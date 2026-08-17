@@ -189,6 +189,45 @@
       60% { transform: scale(1.06); }
       100% { transform: scale(1); opacity: 1; }
     }
+    #opus-banner {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.6s;
+      background: rgba(5, 5, 8, 0.93);
+      border-radius: 14px;
+      z-index: 10;
+    }
+    #opus-banner.show { opacity: 1; pointer-events: auto; }
+    #opus-banner .opus-text {
+      font-size: 32px;
+      font-weight: bold;
+      letter-spacing: 5px;
+      color: var(--gold);
+      text-transform: uppercase;
+      text-shadow: 0 0 26px var(--gold);
+      animation: win-pop 0.6s ease;
+    }
+    #opus-banner .opus-sub {
+      margin-top: 12px;
+      font-size: 14px;
+      letter-spacing: 1px;
+      color: #cbb26a;
+      font-style: italic;
+    }
+    #opus-continue {
+      margin-top: 24px;
+      border: 1px solid var(--gold);
+      color: var(--gold);
+      background: transparent;
+      font-size: 13px;
+    }
+    #opus-continue:hover { background: var(--gold); color: #1a1408; }
     svg { display: block; height: auto; }
 
     .controls { display: flex; gap: 10px; align-items: center; justify-content: center; margin-top: 10px;}
@@ -321,6 +360,11 @@
           <div id="win-banner">
             <span class="win-text">Transmutation Complete</span>
             <span class="win-sub">New work begins&hellip;</span>
+          </div>
+          <div id="opus-banner">
+            <span class="opus-text">Magnum Opus Complete</span>
+            <span class="opus-sub">The Philosopher&rsquo;s Stone is forged. The work endures.</span>
+            <button id="opus-continue">Continue the Work</button>
           </div>
         </div>
         <div class="controls">
@@ -505,11 +549,12 @@
   let state = [], poly = [], txt = [], mirrorMarkers = [], mirrorGovernors = [];
   let nextPuzzleTimer = null;
   let highlightedScope = [], hoveredCell = -1, dragging = false, dragApply = null, tool = "green";
-  let R, W, H, ox, oy, boardEl, boardWrapEl, winBannerEl, winSubEl, recipeEl, resListEl, generatorListEl, upgradeListEl, techListEl, transmuteListEl, statusEl;
+  let R, W, H, ox, oy, boardEl, boardWrapEl, winBannerEl, winSubEl, opusBannerEl, recipeEl, resListEl, generatorListEl, upgradeListEl, techListEl, transmuteListEl, statusEl;
 
   boardEl = document.getElementById("board");
   boardWrapEl = document.querySelector(".board-wrap");
   winBannerEl = document.getElementById("win-banner");
+  opusBannerEl = document.getElementById("opus-banner");
   resListEl = document.getElementById("resource-list");
   winSubEl = document.querySelector("#win-banner .win-sub");
   recipeEl = document.getElementById("recipe");
@@ -1072,6 +1117,14 @@
     setStatus(`${tech.name} achieved!`, "win");
     updateUI();
     saveProgress();
+    if (techId === "philosophers_stone") celebrateMagnumOpus();
+  }
+
+  // The Great Work is done: a persistent gold overlay marks the completion
+  // and offers to keep playing in endless mode.
+  function celebrateMagnumOpus() {
+    opusBannerEl.classList.add("show");
+    boardWrapEl.classList.add("success");
   }
 
   function getTechById(id) {
@@ -1366,6 +1419,11 @@
     for(let i=0;i<cells.length;i++) state[i]= solution[i]===1 ? 1 : (gameState.settings.speedMode ? 0 : 2);
     gameState.currentPuzzle.solved = true; renderCell();
     setStatus("Solution revealed.", "info");
+  };
+  document.getElementById("opus-continue").onclick = () => {
+    opusBannerEl.classList.remove("show");
+    boardWrapEl.classList.remove("success");
+    setStatus("The work endures. Transmute on.", "info");
   };
   document.getElementById("speed-mode").onchange = (e) => {
     gameState.settings.speedMode = e.target.checked;
