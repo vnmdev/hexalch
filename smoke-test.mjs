@@ -153,18 +153,28 @@ try {
       updateUI();
       document.getElementById("btn-upgrade-board").click();
     }
+    for (let i = 0; i < 6; i++) {
+      gameState.resources.prima_materia.amount = 100000;
+      updateUI();
+      document.getElementById("btn-inscribe").click();
+    }
+    document.getElementById("new-board").click(); // future boards use the etched forms
     return {
       radius: gameState.currentPuzzle.radius,
+      inscription: gameState.upgrades.inscription.level,
       location: gameState.currentLocationId,
       clueKinds: [...new Set(clues.filter(Boolean).map(clue => clue.kind))],
       hasUpgradeButton: Boolean(document.getElementById("btn-upgrade-board")),
+      hasInscribeButton: Boolean(document.getElementById("btn-inscribe")),
       elements: Object.keys(gameState.elements)
     };
   })()`);
-  assert(finalBoard.radius === 7, `final board radius is wrong: ${finalBoard.radius}`);
+  assert(finalBoard.radius === 5, `final board radius is wrong: ${finalBoard.radius}`);
+  assert(finalBoard.inscription === 6, `inscription did not reach level six: ${finalBoard.inscription}`);
   assert(finalBoard.location === "aetheric_vault", `final location did not unlock: ${finalBoard.location}`);
   assert(finalBoard.clueKinds.length === 5, `final board should use all five clue types: ${finalBoard.clueKinds.join(", ")}`);
   assert(!finalBoard.hasUpgradeButton, "board upgrade remains available past the cap");
+  assert(finalBoard.hasInscribeButton, "inscription should remain available at the cap");
   assert(finalBoard.elements.join(",") === "earth,water,air,fire,quintessence", "classical element roster is wrong");
 
   const stone = await evaluate(`(() => {

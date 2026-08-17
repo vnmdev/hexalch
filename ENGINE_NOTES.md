@@ -16,6 +16,8 @@ The deduction rules are unchanged: they operate on each definition's `cells` sco
 
 In deliberate mode, Mirror-governed cells carry a faint `◇`; it becomes `◆` when a satisfied Mirror proves that unknown cell is waste. A Mirror clue does not fade until every cell in its remote scope has been explicitly classified. Speed mode hides these dependency marks and performs the waste deduction automatically.
 
+Flow and spear clues carry a **live badge** next to the glyph: `remaining = count − greens painted` (painted + badge = the count, so a player can always see exactly how many more greens the scope needs). Gold when `remaining` equals the unknowns in scope — those cells are then dashed-outlined as **forced moves** (the next valid move); green ✓ when satisfied; red ! when overfilled.
+
 ## Call chain
 ```
 startTier → generate → buildOne → trySolve → deduce → block / topology
@@ -75,8 +77,12 @@ transmutation engine**. This section is the reference for that layer.
     entire stash, but base income means you can always recover.
   - **Generators** (`GENERATORS`), bought with prima, unlocked by
     crucible radius: `extractor` (prima, R3), `earth_well` (R4),
-    `water_well` (R5), `air_vent` (R6), `fire_furnace` (R7). Rate =
+    `water_well` (R4), `air_vent` (R5), `fire_furnace` (R5). Rate =
     `baseRate * 1.5^(level-1)`; cost = `floor(baseCost * 1.8^level)`.
+  - The **ledger** (left panel) shows each resource's passive income
+    next to its count (`+X.X/s`) so accumulation is visible while
+    solving; `incomeRate(id)` sums base gathering (prima) and every
+    generator that produces the resource.
 - **Elements** — earth / water / air / fire / quintessence. The four
   classical elements come **out of solved puzzles** (below); only
   quintessence is still distilled by hand (10 of each element).
@@ -95,34 +101,77 @@ transmutation engine**. This section is the reference for that layer.
 ### A solve is a transmutation (`reportWin`)
 - On a completed pattern, the crucible releases the **elements its
   current radius knows**: `ELEMENTS_BY_RADIUS` — R3 earth; R4 +water;
-  R5 +air; R6/R7 +fire.
-- Yield per element = `transmuteYield(greens) = max(1, round(greens/10))`,
-  so a bigger board (more green cells) releases more. The win banner and
-  the `#recipe` line state the feed cost and expected output up front.
+  R5 all four classical elements.
+- Yield per element = `solveYield(greens) =
+  transmuteYield(greens) + floor(inscription level / 2)` where
+  `transmuteYield = max(1, round(greens/10))`. The crucible caps at
+  radius five (36-ish green cells ⇒ ~4 per element), so **inscription
+  deepens the transmutation** to keep late-game output growing: every
+  two etched levels add one of each element per solve. The win banner
+  and the `#recipe` line state the feed cost and expected output up
+  front (including the etching bonus).
 
 ### Progression
-- **Crucible radius** (`upgrades.board_size`, max `MAX_RADIUS=7`) is the
-  master gate: it sizes the board, unlocks locations, clue kinds
-  (`CLUE_BY_RADIUS`), elements per solve, and generator slots.
+- **Crucible radius** (`upgrades.board_size`) grows **at most twice**
+  (R3 → R4 → R5, costs 50 → 80) and then reaches its final form.
+  Radius sizes the board, unlocks clue forms (surround / halo / spear),
+  elements per solve, generator slots, and the first three locations.
+- **Clue inscription** (`upgrades.inscription`, cost
+  `floor(100 * 1.6^level)`) is the long upgrade path and the entanglement
+  between the incremental and puzzle halves — it buys back solve time:
+  - each level re-etches **3 stripped clues** onto the current board
+    (`currentPuzzle.removedFull` remembers the generator's removal
+    order; `inscribed` how many were restored) and **pre-inscribes all
+    future boards** by `level * 3`;
+  - level **3** unlocks **flow**, level **6** unlocks **mirror** clue
+    forms on future boards (`clueKinds(radius, level)`);
+  - every two levels deepen the transmutation yield (above).
+  Adding clues back never breaks unique solvability, so inscription can
+  only make a board easier — the late game gets faster and richer
+  instead of merely bigger.
+- **Locations**: leaden chamber (R3), martial forge (R4), lunar sanctum
+  (R5), solar temple (R5 + inscription 3), aetheric vault (R5 +
+  inscription 6). `checkAndSetLocation` applies both gates.
 - **Tech tree** (`TECHS`) refines the work: nigredo → albedo →
   citrinitas → rubedo → **philosophers_stone**, each costing metals +
   elements. Forging the Stone raises the **Magnum Opus** gold overlay
   (`celebrateMagnumOpus`) with a *Continue the Work* button into endless
   mode.
-- Save slot `greatwork_v3` (bumped when the economy shape changed);
-  `loadProgress` merges every pool with defaults.
+- **Upgrade UI**: the Alembic's upgrades section shows **every option
+  at once** — crucible expansion, inscription, and all five generator
+  rows (locked rows visible with their unlock radius) — plus a
+  status footer (current clue forms, next location).
+- **Real-time affordability**: the 1 s loop calls `updateUI()` (not
+  just `renderResources()`), so buy buttons flip enabled the second
+  passive income crosses a cost.
+- Save slot `greatwork_v4` (bumped when the economy shape changed);
+  `loadProgress` merges every pool with defaults and starts a fresh
+  puzzle at the saved radius + inscription level.
 
 ### Pacing harness (`pacing-test.mjs`)
 - Runs the **real** `<script>` headlessly: a minimal DOM stub, a seeded
   `Math.random`, and `tick()` driven by the second (timers are captured,
-  never fired, so the sim is deterministic).
+  never fired, so the sim is deterministic). The stub's innerHTML setter
+  parses `id` **and** the `disabled` attribute, so button state can be
+  asserted.
 - **Unit checks** lock the feed economy (cost, refund, no-feed lockout,
-  tick income, per-radius yields, reveal-gives-nothing, reset refunds,
-  win feedback, Magnum Opus overlay).
-- **Simulation**: a greedy player solves on a per-radius interval,
-  upgrades the crucible when affordable, buys generators, follows the
-  metal recipe chain for the next tech, and buys techs. It reports a
-  milestone timeline, detects stalls (no progress in 10 min), and asserts
-  pacing: no soft-locks, stone within 2 h, first iron within 10 m, first
-  gold within 90 m. Verified: 5/5 runs finish, stone averages ~90 m.
+  tick income, per-radius yields incl. all-four-at-R5,
+  reveal-gives-nothing, reset refunds, win feedback, Magnum Opus
+  overlay), fast mode, location ladder incl. inscription gates, mouse
+  painting, save/load (incl. inscription + pre-inscribed restart),
+  Check, manual mode, **unified upgrades list** (U16), **inscription
+  mechanics** — clue etching, pre-inscription, flow/mirror unlocks,
+  deducibility (U17) — **real-time button flips** (U18), and **flow/
+  spear badges** — remaining count, paint tracking, forced-move outline
+  (U20).
+- **Simulation**: a greedy player solves on a per-radius interval that
+  **shrinks with inscription** (`base * 0.95^etched clues`, floor 30 s),
+  upgrades the crucible, **buys inscription whenever affordable**, buys
+  generators, follows the metal recipe chain for the next tech, and
+  buys techs. It reports a milestone timeline (incl. inscription
+  levels), detects stalls (no progress in 10 min), and asserts: no
+  soft-locks, stone within 2 h, first iron within 10 m, first gold
+  within 90 m, crucible fully expanded, inscription ≥ level 2 by the
+  stone (the entanglement actually fires). Verified: 5/5 runs finish,
+  stone averages ~81 m.
 - **Run:** `bun run pacing-test.mjs [--runs N]`.
