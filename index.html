@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>The Great Work — Hex Alchemy</title>
+  <style>
     :root {
       --bg: #0a0a0c;
       --bg-gradient: radial-gradient(circle at center, #1a1a20 0%, #0a0a0c 100%);
@@ -58,6 +59,16 @@
       margin-top: 10px;
       letter-spacing: 1px;
     }
+    .location-display {
+      display: flex;
+      justify-content: center;
+      align-items: baseline;
+      flex-wrap: wrap;
+      gap: 8px 16px;
+      margin-top: 12px;
+    }
+    #loc-title { color: var(--accent); font-weight: bold; letter-spacing: 2px; }
+    #loc-info { color: #999; font-size: 12px; font-style: italic; }
 
     main {
       display: grid;
@@ -123,7 +134,6 @@
       margin: 20px 0;
       box-shadow: inset 0 0 50px rgba(0,0,0,0.8), 0 0 30px rgba(0,0,0,0.5);
       user-select: none;
-      touch-action: none;
     }
     svg { display: block; height: auto; }
 
@@ -149,6 +159,7 @@
       box-shadow: 0 0 10px var(--accent-glow);
     }
     button.primary:hover { background: #f5cf45; transform: translateY(-1px); }
+    button:disabled { cursor: not-allowed; opacity: 0.4; }
 
     /* Alembic (Tech Tree / Transmutation) */
     .tech-item {
@@ -199,10 +210,31 @@
            paint-order: stroke; stroke: #100d0a; stroke-width: 2px; stroke-linejoin: round;
            transition: opacity .08s, fill .08s; }
     text.done { opacity: 0.28; }
+    text.over { fill: var(--red); }
+    .mirror-marker { fill: #9d8ec7; opacity: 0.75; }
+    .mirror-marker.proven { fill: var(--accent); opacity: 1; }
+    .hidden { display: none; }
 
     @media (max-width: 1000px) {
       main { grid-template-columns: 1fr; }
     }
+    .tool-btn {
+      background: #1a1a20;
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 6px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+      transition: all 0.2s;
+    }
+    .tool-btn.on {
+      background: var(--accent);
+      color: #000;
+      border-color: var(--accent);
+      box-shadow: 0 0 10px var(--accent-glow);
+    }
+
   </style>
 </head>
 <body>
@@ -210,6 +242,10 @@
   <header>
     <h1>THE GREAT WORK</h1>
     <div class="subtitle">Transmute the elements to achieve the Magnum Opus</div>
+    <div class="location-display" aria-live="polite">
+      <span id="loc-title"></span>
+      <span id="loc-info"></span>
+    </div>
   </header>
 
   <main>
@@ -237,6 +273,11 @@
           <label style="font-size:12px; color:#aaa; display:flex; align-items:center; gap:5px; cursor:pointer;">
             <input type="checkbox" id="speed-mode" checked> Fast Mode
           </label>
+        </div>
+        <div class="controls" id="tool-controls">
+          <button id="tGreen" class="tool-btn on" type="button">Green</button>
+          <button id="tRed" class="tool-btn" type="button">Red</button>
+          <button id="tErase" class="tool-btn" type="button">Erase</button>
         </div>
       </div>
     </section>
@@ -266,8 +307,10 @@
     FLOW: "flow",
     MIRROR: "mirror",
   });
-  const SPEAR_GLYPHS = ["+", "-", "+"];
-  const FLOW_GLYPHS = ["->", "", "", "<-", "", ""];
+  const SPEAR_GLYPHS = ["╲", "—", "╱"];
+  const FLOW_GLYPHS = ["→", "↗", "↖", "←", "↙", "↘"];
+  const MAX_RADIUS = 7;
+  const CLUE_BY_RADIUS = [CLUE.SURROUND, CLUE.HALO, CLUE.SPEAR, CLUE.FLOW, CLUE.MIRROR];
 
   const LOCATIONS = {
     leaden_chamber: {
@@ -275,62 +318,65 @@
       desc: "A heavy, dark room where matter is first gathered.",
       bg: "#0e0e0e",
       accent: "#8a8f9c",
-      requirement: null
+      minRadius: 3
     },
     martial_forge: {
       name: "The Martial Forge",
       desc: "Heat and friction prepare the metals for change.",
       bg: "#1a0a0a",
       accent: "#c07a63",
-      requirement: "iron"
+      minRadius: 4
     },
     lunar_sanctum: {
       name: "The Lunar Sanctum",
       desc: "A place of quiet reflection and silver light.",
       bg: "#0a1015",
       accent: "#e6eaef",
-      requirement: "silver"
+      minRadius: 5
     },
     solar_temple: {
       name: "The Solar Temple",
       desc: "Where the light of the sun turns base metal to gold.",
       bg: "#1a150a",
       accent: "#e8be2a",
-      requirement: "gold"
+      minRadius: 6
     },
     aetheric_vault: {
       name: "The Aetheric Vault",
       desc: "Beyond the physical realm, the essence awaits.",
       bg: "#0a0515",
       accent: "#ff5ce0",
-      requirement: "quintessence"
+      minRadius: 7
     }
   };
 
   const METAL_RECIPES = {
-    lead: { cost: { prima_materia: 0 }, sym: "Pb" },
-    iron: { cost: { prima_materia: 100 }, sym: "Fe" },
-    copper: { cost: { prima_materia: 300, iron: 5 }, sym: "Cu" },
-    silver: { cost: { prima_materia: 1000, copper: 10 }, sym: "Ag" },
-    gold: { cost: { prima_materia: 5000, silver: 10 }, sym: "Au" }
+    lead: { cost: { prima_materia: 20 }, sym: "Pb" },
+    iron: { cost: { prima_materia: 100, earth: 3 }, sym: "Fe" },
+    copper: { cost: { prima_materia: 250, iron: 2, fire: 2 }, sym: "Cu" },
+    silver: { cost: { prima_materia: 600, copper: 3, water: 5 }, sym: "Ag" },
+    gold: { cost: { prima_materia: 1500, silver: 3, quintessence: 1 }, sym: "Au" }
   };
 
   const ELEMENT_RECIPES = {
-    sulfur: { cost: { prima_materia: 500, iron: 10 }, sym: "S" },
-    mercury: { cost: { prima_materia: 1500, silver: 5 }, sym: "Hg" },
-    salt: { cost: { prima_materia: 3000, gold: 2 }, sym: "NaCl" },
-    vitriol: { cost: { prima_materia: 2000, sulfur: 10 }, sym: "Vit" },
-    quintessence: { cost: { sulfur: 50, mercury: 50, salt: 50, vitriol: 50 }, sym: "Ω" }
+    earth: { cost: { prima_materia: 75 }, sym: "🜃" },
+    water: { cost: { prima_materia: 125, earth: 2 }, sym: "🜄" },
+    air: { cost: { prima_materia: 200, water: 2 }, sym: "🜁" },
+    fire: { cost: { prima_materia: 300, air: 2 }, sym: "🜂" },
+    quintessence: { cost: { earth: 10, water: 10, air: 10, fire: 10 }, sym: "Ω" }
   };
+
+  const TECHS = [
+    { id: "nigredo", name: "Nigredo", desc: "Blacken and dissolve the base matter.", cost: { lead: 5, earth: 10 }, req: [] },
+    { id: "albedo", name: "Albedo", desc: "Wash the work clean in lunar white.", cost: { silver: 2, water: 20 }, req: ["nigredo"] },
+    { id: "citrinitas", name: "Citrinitas", desc: "Awaken the solar spirit within it.", cost: { gold: 2, air: 25 }, req: ["albedo"] },
+    { id: "rubedo", name: "Rubedo", desc: "Unite the opposites in the red stage.", cost: { copper: 5, fire: 30 }, req: ["citrinitas"] },
+    { id: "philosophers_stone", name: "The Philosopher's Stone", desc: "Complete and stabilize the Magnum Opus.", cost: { gold: 5, quintessence: 10 }, req: ["rubedo"] }
+  ];
 
   let gameState = {
     resources: {
-      prima_materia: { name: "Prima Materia", amount: 0, color: "#d8d8d8" },
-      sulfur: { name: "Sulfur", amount: 0, color: "#e8be2a" },
-      mercury: { name: "Mercury", amount: 0, color: "#46c4ba" },
-      salt: { name: "Salt", amount: 0, color: "#bccacf" },
-      vitriol: { name: "Vitriol", amount: 0, color: "#9b59b6" },
-      quintessence: { name: "Quintessence", amount: 0, color: "#ff5ce0" }
+      prima_materia: { name: "Prima Materia", amount: 0, color: "#d8d8d8" }
     },
     metals: {
       lead: { name: "Lead", amount: 0, sym: "Pb" },
@@ -340,18 +386,17 @@
       gold: { name: "Gold", amount: 0, sym: "Au" }
     },
     elements: {
-      sulfur: { name: "Sulfur", amount: 0, sym: "S" },
-      mercury: { name: "Mercury", amount: 0, sym: "Hg" },
-      salt: { name: "Salt", amount: 0, sym: "NaCl" },
-      vitriol: { name: "Vitriol", amount: 0, sym: "Vit" },
+      earth: { name: "Earth", amount: 0, sym: "🜃" },
+      water: { name: "Water", amount: 0, sym: "🜄" },
+      air: { name: "Air", amount: 0, sym: "🜁" },
+      fire: { name: "Fire", amount: 0, sym: "🜂" },
       quintessence: { name: "Quintessence", amount: 0, sym: "Ω" }
     },
     upgrades: {
-      board_size: { radius: 3, cost: 50 },
-      clue_discovery: { index: 0, cost: 100 }
+      board_size: { radius: 3, cost: 50 }
     },
     techTree: {},
-    settings: { speedMode: false },
+    settings: { speedMode: true },
     currentPuzzle: { radius: 3, density: 0.4, attempts: 5, solved: false },
     currentLocationId: "leaden_chamber"
   };
@@ -360,6 +405,13 @@
   let state = [], poly = [], txt = [], mirrorMarkers = [], mirrorGovernors = [];
   let highlightedScope = [], hoveredCell = -1, dragging = false, dragApply = null, tool = "green";
   let R, W, H, ox, oy, boardEl, resListEl, upgradeListEl, techListEl, transmuteListEl, statusEl;
+
+  boardEl = document.getElementById("board");
+  resListEl = document.getElementById("resource-list");
+  upgradeListEl = document.getElementById("upgrades-list");
+  techListEl = document.getElementById("tech-tree-list");
+  transmuteListEl = document.getElementById("transmute-list");
+  statusEl = document.getElementById("status");
 
   // ---------- Core Engine ----------
 
@@ -680,15 +732,20 @@
   boardEl.addEventListener("contextmenu", e => e.preventDefault());
 
   function setTool(t) {
+    if (gameState.settings.speedMode && t === "red") t = "green";
     tool = t;
     document.getElementById("tGreen").classList.toggle("on", t === "green");
     document.getElementById("tRed").classList.toggle("on", t === "red");
     document.getElementById("tErase").classList.toggle("on", t === "erase");
+    document.getElementById("tRed").disabled = gameState.settings.speedMode;
   }
 
   // ---------- Win / Progress ----------
 
-  function setStatus(msg, cls) { statusEl.textContent = msg; statusEl.className = cls || ""; }
+  function setStatus(msg, cls) {
+    statusEl.textContent = msg;
+    statusEl.className = cls ? `status-${cls}` : "";
+  }
 
   function boardComplete() {
     for (let i = 0; i < cells.length; i++) {
@@ -708,12 +765,12 @@
     gameState.currentPuzzle.solved = true;
     setStatus("Success! Transmutation complete.", "win");
     
-    // Award resources
-    addResource("prima_materia", cells.length * 0.5);
-    if (gameState.currentPuzzle.radius >= 4) addResource("sulfur", 1);
-    if (gameState.currentPuzzle.radius >= 6) addResource("mercury", 1);
-    if (gameState.currentPuzzle.radius >= 8) addResource("salt", 1);
-    if (gameState.currentPuzzle.radius >= 10) addResource("vitriol", 1);
+    // Larger boards yield more Prima Materia and progressively expose the elements.
+    addInventory("prima_materia", cells.length * 0.5);
+    if (gameState.currentPuzzle.radius >= 3) addInventory("earth", 1);
+    if (gameState.currentPuzzle.radius >= 4) addInventory("water", 1);
+    if (gameState.currentPuzzle.radius >= 5) addInventory("air", 1);
+    if (gameState.currentPuzzle.radius >= 6) addInventory("fire", 1);
     
     updateUI();
     saveProgress();
@@ -721,19 +778,34 @@
 
   // ---------- Game Operations ----------
 
-  function addResource(name, amount) {
-    if (gameState.resources[name] !== undefined) {
-      gameState.resources[name].amount += amount;
-    }
+  function inventoryEntry(id) {
+    return gameState.resources[id] || gameState.metals[id] || gameState.elements[id] || null;
+  }
+
+  function addInventory(id, amount) {
+    const entry = inventoryEntry(id);
+    if (entry) entry.amount += amount;
+  }
+
+  function canAfford(cost) {
+    return Object.entries(cost).every(([id, amount]) => (inventoryEntry(id)?.amount || 0) >= amount);
+  }
+
+  function spend(cost) {
+    for (const [id, amount] of Object.entries(cost)) inventoryEntry(id).amount -= amount;
+  }
+
+  function formatCost(cost) {
+    return Object.entries(cost)
+      .map(([id, amount]) => `${amount} ${id.replaceAll("_", " ")}`)
+      .join(" · ");
   }
 
   function startPuzzle() {
     gameState.currentPuzzle.solved = false;
     const p = gameState.currentPuzzle;
-    const kinds = ["surround"];
-    const discoveryIdx = gameState.upgrades.clue_discovery.index;
-    const allKinds = [CLUE.SURROUND, CLUE.HALO, CLUE.SPEAR, CLUE.FLOW, CLUE.MIRROR];
-    for(let i=0;i<=discoveryIdx;i++) kinds.push(allKinds[i]);
+    const unlockedClues = Math.min(CLUE_BY_RADIUS.length, Math.max(1, p.radius - 2));
+    const kinds = CLUE_BY_RADIUS.slice(0, unlockedClues);
 
     generate(p.radius, p.density, p.attempts, kinds);
     state = cells.map(() => 0);
@@ -743,6 +815,10 @@
   }
 
   function upgradeBoard() {
+    if (gameState.upgrades.board_size.radius >= MAX_RADIUS) {
+      setStatus("The crucible has reached its final form.", "info");
+      return;
+    }
     const cost = gameState.upgrades.board_size.cost;
     if (gameState.resources.prima_materia.amount >= cost) {
       gameState.resources.prima_materia.amount -= cost;
@@ -750,20 +826,7 @@
       gameState.upgrades.board_size.cost = Math.floor(cost * 1.6);
       gameState.currentPuzzle.radius = gameState.upgrades.board_size.radius;
       startPuzzle();
-      updateUI();
-    } else {
-      setStatus("Not enough Prima Materia.", "err");
-    }
-  }
-
-  function upgradeClues() {
-    const cost = gameState.upgrades.clue_discovery.cost;
-    if (gameState.resources.prima_materia.amount >= cost) {
-      gameState.resources.prima_materia.amount -= cost;
-      gameState.upgrades.clue_discovery.index++;
-      gameState.upgrades.clue_discovery.cost = Math.floor(cost * 2.5);
-      startPuzzle();
-      updateUI();
+      saveProgress();
     } else {
       setStatus("Not enough Prima Materia.", "err");
     }
@@ -772,6 +835,7 @@
   function buyTech(techId) {
     const tech = getTechById(techId);
     if (!tech) return;
+    if (gameState.techTree[techId]) return;
     
     // Check requirement
     const reqs = tech.req;
@@ -780,18 +844,11 @@
       return;
     }
 
-    // Check cost
-    for(const [res, amount] of Object.entries(tech.cost)) {
-      if(gameState.resources[res].amount < amount) {
-        setStatus(`Not enough ${res.replace('_',' ')}`, "err");
-        return;
-      }
+    if (!canAfford(tech.cost)) {
+      setStatus(`Requires ${formatCost(tech.cost)}.`, "err");
+      return;
     }
-
-    // Purchase
-    for(const [res, amount] of Object.entries(tech.cost)) {
-      gameState.resources[res].amount -= amount;
-    }
+    spend(tech.cost);
     gameState.techTree[techId] = true;
     setStatus(`${tech.name} achieved!`, "win");
     updateUI();
@@ -799,14 +856,7 @@
   }
 
   function getTechById(id) {
-    const techs = [
-      { id: "nigredo", name: "Nigredo", desc: "The blackening. Dissolution of matter.", cost: { prima_materia: 500 }, req: [] },
-      { id: "albedo", name: "Albedo", desc: "The whitening. Purification of the soul.", cost: { sulfur: 50 }, req: ["nigredo"] },
-      { id: "citrinitas", name: "Citrinitas", desc: "The yellowing. Dawn of solar light.", cost: { mercury: 50 }, req: ["albedo"] },
-      { id: "rubedo", name: "Rubedo", desc: "The reddening. Completion of the work.", cost: { salt: 50 }, req: ["citrinitas"] },
-      { id: "magnum_opus", name: "Magnum Opus", desc: "The creation of the Philosopher's Stone.", cost: { quintessence: 10 }, req: ["rubedo"] }
-    ];
-    return techs.find(t => t.id === id);
+    return TECHS.find(t => t.id === id);
   }
 
   // ---------- Transmutation Implementation ----------
@@ -815,18 +865,11 @@
     const recipe = type === 'metal' ? METAL_RECIPES[id] : ELEMENT_RECIPES[id];
     if (!recipe) return;
 
-    // Check cost
-    for (const [res, amt] of Object.entries(recipe.cost)) {
-      if (gameState.resources[res].amount < amt) {
-        setStatus(`Not enough ${res.replace('_', ' ')}`, "err");
-        return;
-      }
+    if (!canAfford(recipe.cost)) {
+      setStatus(`Requires ${formatCost(recipe.cost)}.`, "err");
+      return;
     }
-
-    // Deduct and Add
-    for (const [res, amt] of Object.entries(recipe.cost)) {
-      gameState.resources[res].amount -= amt;
-    }
+    spend(recipe.cost);
 
     if (type === 'metal') gameState.metals[id].amount++;
     else gameState.elements[id].amount++;
@@ -848,16 +891,7 @@
 
   function checkAndSetLocation() {
     for (const [id, loc] of Object.entries(LOCATIONS)) {
-      if (!loc.requirement) {
-        if (gameState.currentLocationId === id) return;
-        gameState.currentLocationId = id;
-        return;
-      }
-      if (gameState.metals[loc.requirement]?.amount > 0 || gameState.elements[loc.requirement]?.amount > 0) {
-        if (gameState.currentLocationId === id) return;
-        gameState.currentLocationId = id;
-        return;
-      }
+      if (gameState.upgrades.board_size.radius >= loc.minRadius) gameState.currentLocationId = id;
     }
   }
 
@@ -866,14 +900,12 @@
     const loc = LOCATIONS[gameState.currentLocationId];
     const titleEl = document.getElementById("loc-title");
     const infoEl = document.getElementById("loc-info");
-    const bodyEl = document.getElementById("body");
 
     titleEl.textContent = loc.name;
     infoEl.textContent = loc.desc;
-    
-    document.documentElement.style.setProperty("--location-bg", loc.bg);
-    document.documentElement.style.setProperty("--location-accent", loc.accent);
-    bodyEl.style.background = loc.bg;
+    document.documentElement.style.setProperty("--bg", loc.bg);
+    document.documentElement.style.setProperty("--accent", loc.accent);
+    document.body.style.backgroundColor = loc.bg;
   }
 
   function renderResources() {
@@ -933,50 +965,43 @@
     
     // Board Size Upgrade
     const boardCost = gameState.upgrades.board_size.cost;
+    const radius = gameState.upgrades.board_size.radius;
+    const atMaxRadius = radius >= MAX_RADIUS;
     const bDiv = document.createElement("div");
     bDiv.className = "tech-item";
     bDiv.innerHTML = `
       <span class="tech-name">Expand Crucible</span>
-      <span class="tech-desc">Increase radius to ${gameState.upgrades.board_size.radius}</span>
-      <span class="tech-cost">${boardCost} Prima Materia</span>
-      <button class="tech-btn primary" id="btn-upgrade-board">Upgrade</button>
+      <span class="tech-desc">${atMaxRadius ? "The crucible is fully expanded." : `Increase radius to ${radius + 1}`}</span>
+      ${atMaxRadius ? "" : `<span class="tech-cost">${boardCost} Prima Materia</span>`}
+      ${atMaxRadius ? "" : `<button class="tech-btn primary" id="btn-upgrade-board" ${canAfford({ prima_materia: boardCost }) ? "" : "disabled"}>Upgrade</button>`}
     `;
     upgradeListEl.appendChild(bDiv);
-    document.getElementById("btn-upgrade-board").onclick = upgradeBoard;
+    if (!atMaxRadius) document.getElementById("btn-upgrade-board").onclick = upgradeBoard;
 
-    // Clue Discovery Upgrade
-    const clueCost = gameState.upgrades.clue_discovery.cost;
-    const cDiv = document.createElement("div");
-    cDiv.className = "tech-item";
-    cDiv.innerHTML = `
-      <span class="tech-name">Unlock Clue Variants</span>
-      <span class="tech-desc">New patterns...</span>
-      <span class="tech-cost">${clueCost} Prima Materia</span>
-      <button class="tech-btn primary" id="btn-upgrade-clues">Upgrade</button>
+    const unlockedClues = Math.min(CLUE_BY_RADIUS.length, Math.max(1, radius - 2));
+    const nextClue = CLUE_BY_RADIUS[unlockedClues];
+    const nextLocation = Object.values(LOCATIONS).find(loc => loc.minRadius > radius);
+    const progress = document.createElement("div");
+    progress.className = "tech-item unlocked";
+    progress.innerHTML = `
+      <span class="tech-name">Crucible radius ${radius}</span>
+      <span class="tech-desc">Clues: ${CLUE_BY_RADIUS.slice(0, unlockedClues).join(", ")}</span>
+      <span class="tech-desc">${nextClue ? `Next clue: ${nextClue}` : "All clue forms unlocked"}</span>
+      <span class="tech-desc">${nextLocation ? `Next location at radius ${nextLocation.minRadius}` : "All locations unlocked"}</span>
     `;
-    upgradeListEl.appendChild(cDiv);
-    document.getElementById("btn-upgrade-clues").onclick = upgradeClues;
+    upgradeListEl.appendChild(progress);
   }
 
   function renderTechTree() {
     techListEl.innerHTML = "";
-    const techs = [
-      { id: "nigredo", name: "Nigredo", desc: "The blackening. Dissolution of matter.", cost: { prima_materia: 500 }, req: [] },
-      { id: "albedo", name: "Albedo", desc: "The whitening. Purification of the soul.", cost: { sulfur: 50 }, req: ["nigredo"] },
-      { id: "citrinitas", name: "Citrinitas", desc: "The yellowing. Dawn of solar light.", cost: { mercury: 50 }, req: ["albedo"] },
-      { id: "rubedo", name: "Rubedo", desc: "The reddening. Completion of the work.", cost: { salt: 50 }, req: ["citrinitas"] },
-      { id: "magnum_opus", name: "Magnum Opus", desc: "The creation of the Philosopher's Stone.", cost: { quintessence: 10 }, req: ["rubedo"] }
-    ];
-
-    techs.forEach(t => {
+    TECHS.forEach(t => {
       const isUnlocked = gameState.techTree[t.id];
       const isAvailable = t.req.every(r => gameState.techTree[r]);
       
       const div = document.createElement("div");
       div.className = "tech-item" + (isUnlocked ? " unlocked" : (isAvailable ? "" : " locked"));
       
-      let costStr = "";
-      for(const [res, amt] of Object.entries(t.cost)) costStr += `${amt} ${res.replace('_',' ')} `;
+      const costStr = formatCost(t.cost);
 
       div.innerHTML = `
         <span class="tech-name">${t.name} ${isUnlocked ? "✓" : ""}</span>
@@ -1007,12 +1032,11 @@
       const recipe = METAL_RECIPES[id];
       const div = document.createElement("div");
       div.className = "tech-item";
-      let costStr = "";
-      for(const [res, amt] of Object.entries(recipe.cost)) costStr += `${amt} ${res.replace('_',' ')} `;
+      const costStr = formatCost(recipe.cost);
       div.innerHTML = `
         <span class="tech-name">${data.sym} ${data.name}</span>
         <span class="tech-cost">${costStr}</span>
-        <button class="transmute-btn" id="transmute-m-${id}">Transmute</button>
+        <button class="transmute-btn" id="transmute-m-${id}" ${canAfford(recipe.cost) ? "" : "disabled"}>Transmute</button>
       `;
       transmuteListEl.appendChild(div);
       document.getElementById(`transmute-m-${id}`).onclick = () => transmute('metal', id);
@@ -1030,12 +1054,11 @@
       const recipe = ELEMENT_RECIPES[id];
       const div = document.createElement("div");
       div.className = "tech-item";
-      let costStr = "";
-      for(const [res, amt] of Object.entries(recipe.cost)) costStr += `${amt} ${res.replace('_',' ')} `;
+      const costStr = formatCost(recipe.cost);
       div.innerHTML = `
         <span class="tech-name">${data.sym} ${data.name}</span>
         <span class="tech-cost">${costStr}</span>
-        <button class="transmute-btn" id="transmute-e-${id}">Transmute</button>
+        <button class="transmute-btn" id="transmute-e-${id}" ${canAfford(recipe.cost) ? "" : "disabled"}>Transmute</button>
       `;
       transmuteListEl.appendChild(div);
       document.getElementById(`transmute-e-${id}`).onclick = () => transmute('element', id);
@@ -1048,21 +1071,50 @@
     try { localStorage.setItem("greatwork_v2", JSON.stringify(gameState)); } catch(e) {}
   }
 
+  function mergeInventoryMap(defaultMap, savedMap = {}, legacyMap = {}) {
+    const merged = {};
+    for (const [id, defaultEntry] of Object.entries(defaultMap)) {
+      const saved = savedMap?.[id] ?? legacyMap?.[id];
+      const savedAmount = typeof saved === "number" ? saved : Number(saved?.amount);
+      merged[id] = {
+        ...defaultEntry,
+        ...(saved && typeof saved === "object" ? saved : {}),
+        amount: Number.isFinite(savedAmount) ? Math.max(0, savedAmount) : defaultEntry.amount
+      };
+    }
+    return merged;
+  }
+
   function loadProgress() {
     try {
       const d = JSON.parse(localStorage.getItem("greatwork_v2"));
-      if (d) {
-        // Merge loaded state with defaults to handle schema updates
-        gameState = { ...gameState, ...d };
-        gameState.resources = { ...gameState.resources, ...d.resources };
-        gameState.metals = { ...gameState.metals, ...d.metals };
-        gameState.elements = { ...gameState.elements, ...d.elements };
-        gameState.upgrades = { ...gameState.upgrades, ...d.upgrades };
-        gameState.techTree = { ...gameState.techTree, ...d.techTree };
-        gameState.settings = { ...gameState.settings, ...d.settings };
-        gameState.currentPuzzle = { ...gameState.currentPuzzle, ...d.currentPuzzle };
-        gameState.currentLocationId = d.currentLocationId || "leaden_chamber";
-      }
+      if (!d || typeof d !== "object") return;
+
+      const defaults = gameState;
+      const savedRadius = Number(d.upgrades?.board_size?.radius ?? d.currentPuzzle?.radius);
+      const radius = Number.isFinite(savedRadius)
+        ? Math.min(MAX_RADIUS, Math.max(3, Math.floor(savedRadius)))
+        : defaults.upgrades.board_size.radius;
+      const savedCost = Number(d.upgrades?.board_size?.cost);
+      const techTree = Object.fromEntries(TECHS.map(tech => [tech.id, Boolean(d.techTree?.[tech.id])]));
+      if (d.techTree?.magnum_opus) techTree.philosophers_stone = true;
+
+      gameState = {
+        ...defaults,
+        resources: mergeInventoryMap(defaults.resources, d.resources),
+        metals: mergeInventoryMap(defaults.metals, d.metals),
+        elements: mergeInventoryMap(defaults.elements, d.elements, d.resources),
+        upgrades: {
+          board_size: {
+            radius,
+            cost: Number.isFinite(savedCost) && savedCost > 0 ? savedCost : defaults.upgrades.board_size.cost
+          }
+        },
+        techTree,
+        settings: { ...defaults.settings, ...(d.settings || {}) },
+        currentPuzzle: { ...defaults.currentPuzzle, ...(d.currentPuzzle || {}), radius, solved: false },
+        currentLocationId: d.currentLocationId || defaults.currentLocationId
+      };
     } catch(e) { console.error(e); }
   }
 
@@ -1095,24 +1147,19 @@
     }
     renderCell();
     setStatus(gameState.settings.speedMode ? "Fast Mode: leftovers auto-fill red." : "Manual Mode: mark reds yourself.", "info");
+    setTool(tool);
+    saveProgress();
   };
 
   document.getElementById("tGreen").onclick = ()=> setTool("green");
   document.getElementById("tRed").onclick   = ()=> setTool("red");
   document.getElementById("tErase").onclick = ()=> setTool("erase");
 
-  function setTool(t) {
-    tool = t;
-    document.getElementById("tGreen").classList.toggle("on", t==="green");
-    document.getElementById("tRed").classList.toggle("on", t==="red");
-    document.getElementById("tErase").classList.toggle("on", t==="erase");
-  }
-
   loadProgress();
+  document.getElementById("speed-mode").checked = gameState.settings.speedMode;
+  setTool("green");
   startPuzzle();
-  updateUI();
 
  </script>
- </body
- </html
-"
+</body>
+</html>
