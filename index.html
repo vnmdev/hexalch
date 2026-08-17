@@ -33,8 +33,8 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      min-height: 100vh;
-      overflow-x: hidden;
+      height: 100vh;
+      overflow: hidden;
     }
 
     header {
@@ -76,8 +76,10 @@
       gap: 20px;
       width: 100%;
       max-width: 1600px;
-      padding: 20px;
+      padding: 16px;
       flex-grow: 1;
+      min-height: 0;
+      align-items: start;
     }
 
     /* Panels */
@@ -88,6 +90,8 @@
       display: flex;
       flex-direction: column;
       overflow: hidden;
+      max-height: 100%;
+      min-height: 0;
       backdrop-filter: blur(5px);
       box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
     }
@@ -102,7 +106,7 @@
       color: var(--accent);
       text-shadow: 0 0 5px var(--accent-glow);
     }
-    .panel-content { padding: 15px; flex-grow: 1; overflow-y: auto; }
+    .panel-content { padding: 15px; flex-grow: 1; overflow-y: auto; min-height: 0; }
 
     /* Ledger (Resources) */
     .resource-item {
@@ -126,8 +130,7 @@
       flex-direction: column;
     }
     .board-wrap {
-      flex-grow: 1;
-      min-height: 0;
+      position: relative;
       width: 100%;
       background: #050505;
       padding: 10px;
@@ -136,16 +139,55 @@
       margin: 10px 0;
       box-shadow: inset 0 0 50px rgba(0,0,0,0.8), 0 0 30px rgba(0,0,0,0.5);
       user-select: none;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      transition: box-shadow 0.4s, border-color 0.4s;
+    }
+    .board-wrap.success {
+      border-color: var(--green);
+      animation: success-glow 1.6s ease;
+    }
+    @keyframes success-glow {
+      0%, 100% { box-shadow: inset 0 0 50px rgba(0,0,0,0.8), 0 0 30px rgba(0,0,0,0.5); }
+      50% { box-shadow: inset 0 0 90px rgba(92,224,92,0.35), 0 0 45px var(--green); }
     }
     #board {
       display: block;
       width: 100%;
-      height: 100%;
-      max-width: 100%;
-      max-height: 100%;
+      height: auto;
+      max-height: calc(100vh - 400px);
+    }
+    #win-banner {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.25s;
+      background: rgba(5, 5, 5, 0.55);
+      border-radius: 14px;
+    }
+    #win-banner.show { opacity: 1; }
+    #win-banner .win-text {
+      font-size: 30px;
+      font-weight: bold;
+      letter-spacing: 4px;
+      color: var(--green);
+      text-transform: uppercase;
+      text-shadow: 0 0 22px var(--green);
+      animation: win-pop 0.5s ease;
+    }
+    #win-banner .win-sub {
+      margin-top: 10px;
+      font-size: 14px;
+      letter-spacing: 1px;
+      color: var(--accent);
+    }
+    @keyframes win-pop {
+      0% { transform: scale(0.8); opacity: 0; }
+      60% { transform: scale(1.06); }
+      100% { transform: scale(1); opacity: 1; }
     }
     svg { display: block; height: auto; }
 
@@ -273,7 +315,11 @@
       <div class="panel-content" style="display:flex; flex-direction:column; align-items:center;">
         <div id="status"></div>
         <div class="board-wrap">
-          <svg id="board"></svg>
+          <svg id="board" preserveAspectRatio="xMidYMin meet"></svg>
+          <div id="win-banner">
+            <span class="win-text">Transmutation Complete</span>
+            <span class="win-sub">New work begins&hellip;</span>
+          </div>
         </div>
         <div class="controls">
           <button id="new-board">New Puzzle</button>
@@ -416,9 +462,12 @@
   let cells = [], idxOf = new Map(), block = [], solution = [], clues = [];
   let state = [], poly = [], txt = [], mirrorMarkers = [], mirrorGovernors = [];
   let highlightedScope = [], hoveredCell = -1, dragging = false, dragApply = null, tool = "green";
-  let R, W, H, ox, oy, boardEl, resListEl, upgradeListEl, techListEl, transmuteListEl, statusEl;
+  let R, W, H, ox, oy, boardEl, boardWrapEl, winBannerEl, resListEl, upgradeListEl, techListEl, transmuteListEl, statusEl;
+  let nextPuzzleTimer = null;
 
   boardEl = document.getElementById("board");
+  boardWrapEl = document.querySelector(".board-wrap");
+  winBannerEl = document.getElementById("win-banner");
   resListEl = document.getElementById("resource-list");
   upgradeListEl = document.getElementById("upgrades-list");
   techListEl = document.getElementById("tech-tree-list");
@@ -773,18 +822,34 @@
   function afterMove() { if (!gameState.currentPuzzle.solved && boardComplete()) reportWin(); }
 
   function reportWin() {
+    if (gameState.currentPuzzle.solved) return;
     gameState.currentPuzzle.solved = true;
     setStatus("Success! Transmutation complete.", "win");
-    
+
     // Larger boards yield more Prima Materia and progressively expose the elements.
     addInventory("prima_materia", cells.length * 0.5);
     if (gameState.currentPuzzle.radius >= 3) addInventory("earth", 1);
     if (gameState.currentPuzzle.radius >= 4) addInventory("water", 1);
     if (gameState.currentPuzzle.radius >= 5) addInventory("air", 1);
     if (gameState.currentPuzzle.radius >= 6) addInventory("fire", 1);
-    
+
     updateUI();
     saveProgress();
+    celebrateWin();
+  }
+
+  function celebrateWin() {
+    winBannerEl.classList.add("show");
+    boardWrapEl.classList.add("success");
+    scheduleNextPuzzle();
+  }
+
+  function scheduleNextPuzzle() {
+    if (nextPuzzleTimer) clearTimeout(nextPuzzleTimer);
+    nextPuzzleTimer = setTimeout(() => {
+      nextPuzzleTimer = null;
+      startPuzzle();
+    }, 1600);
   }
 
   // ---------- Game Operations ----------
@@ -813,6 +878,9 @@
   }
 
   function startPuzzle() {
+    if (nextPuzzleTimer) { clearTimeout(nextPuzzleTimer); nextPuzzleTimer = null; }
+    winBannerEl.classList.remove("show");
+    boardWrapEl.classList.remove("success");
     gameState.currentPuzzle.solved = false;
     const p = gameState.currentPuzzle;
     const unlockedClues = Math.min(CLUE_BY_RADIUS.length, Math.max(1, p.radius - 2));
