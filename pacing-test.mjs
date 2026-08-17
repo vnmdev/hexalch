@@ -65,12 +65,13 @@ function mulberry32(seed) {
     set innerHTML(html) {
       this._innerHTML = String(html);
       this.children = [];
-      const re = /<(\w+)[^>]*id="([^"]+)"/g;
+      const re = /<(\w+)([^>]*)>/g;
       let m;
       while ((m = re.exec(this._innerHTML))) {
         const el = new El(m[1]);
-        el.id = m[2];
-        byId.set(m[2], el);
+        const idm = m[2].match(/id="([^"]+)"/);
+        if (idm) { el.id = idm[1]; byId.set(idm[1], el); }
+        if (/\bdisabled\b/.test(m[2])) el.disabled = true;
         this.children.push(el);
       }
     }
@@ -146,12 +147,14 @@ const HOOK = `
   get cells() { return cells; },
   get solution() { return solution; },
   get state() { return state; },
+  get clues() { return clues; },
   setCell, startPuzzle, reportWin, tick, updateUI,
   generatorCost, generatorRate,
   saveProgress, loadProgress,
-  upgradeBoard, buyTech, transmute, buyGenerator,
+  upgradeBoard, buyTech, transmute, buyGenerator, buyInscription, inscriptionCost,
   addInventory, canAfford, spend,
   ELEMENTS_BY_RADIUS, GENERATORS, TECHS, METAL_RECIPES, ELEMENT_RECIPES, MAX_RADIUS, LOCATIONS,
+  CLUE, INSCRIPTION, trySolve,
 };
 `;
 
@@ -277,7 +280,7 @@ function runUnitChecks() {
       && env.doc.getElementById("speed-mode").checked === true
       && env.doc.getElementById("tRed").disabled === true);
   }
-  // U11: location UI (id, title, body background) follows board progression.
+  // U11: location UI (id, title, body background) follows board + inscription.
   {
     const { G, env } = launchGame(11);
     const gs = G.gameState;
@@ -290,9 +293,13 @@ function runUnitChecks() {
     check("U11a start at Leaden Chamber (R3)", assertLoc("leaden_chamber"));
     gs.resources.prima_materia.amount = 100000;
     G.upgradeBoard(); G.upgradeBoard();
-    check("U11b Lunar Sanctum at R5", gs.upgrades.board_size.radius === 5 && assertLoc("lunar_sanctum"));
-    G.upgradeBoard(); G.upgradeBoard();
-    check("U11c Aetheric Vault at R7", gs.upgrades.board_size.radius === 7 && assertLoc("aetheric_vault"));
+    check("U11b Lunar Sanctum at R5 (cap)", gs.upgrades.board_size.radius === 5 && assertLoc("lunar_sanctum"));
+    G.upgradeBoard();
+    check("U11c radius capped at 5", gs.upgrades.board_size.radius === 5);
+    gs.upgrades.inscription.level = 3; G.updateUI();
+    check("U11d Solar Temple at R5 + inscription 3", assertLoc("solar_temple"));
+    gs.upgrades.inscription.level = 6; G.updateUI();
+    check("U11e Aetheric Vault at R5 + inscription 6", assertLoc("aetheric_vault"));
   }
   // U12: painting works through the real mouse-event path (click + drag).
   {
@@ -324,6 +331,7 @@ function runUnitChecks() {
     gs.resources.prima_materia.amount = 5000;
     a.G.upgradeBoard();               // -> R4
     a.G.buyGenerator("extractor");    // level 1
+    a.G.buyInscription();             // inscription level 1
     gs.resources.prima_materia.amount = 5000;
     a.G.transmute("metal", "lead");   // first metal
     a.G.saveProgress();
@@ -332,6 +340,9 @@ function runUnitChecks() {
     check("U13a radius restored", g2.upgrades.board_size.radius === 4);
     check("U13b generator restored", g2.generators.extractor === 1);
     check("U13c metal restored", g2.metals.lead.amount === 1);
+    check("U13d inscription restored", g2.upgrades.inscription.level === 1);
+    check("U13e loaded puzzle starts pre-inscribed",
+      g2.currentPuzzle.inscribed === Math.min(3, g2.currentPuzzle.removedTotal));
   }
   // U14: the Check button flags mistakes and accepts a correct board.
   {
@@ -367,10 +378,105 @@ function runUnitChecks() {
     env.win.fire("mouseup");
     check("U15b right-click marks empty in manual mode", G.state[k] === 2);
   }
+  // U16: the upgrades section lists every option at once.
+  {
+    const { G, env } = launchGame(21);
+    G.gameState.resources.prima_materia.amount = 100000;
+    G.updateUI();
+    const list = env.byId.get("upgrades-list");
+    const html = list.children.map(c => c.innerHTML || c.textContent || "").join("\n");
+    check("U16 upgrades section lists all options",
+      !!env.doc.getElementById("btn-upgrade-board")
+      && !!env.doc.getElementById("btn-inscribe")
+      && !!env.doc.getElementById("btn-gen-extractor")
+      && html.includes("Fire Furnace")
+      && html.includes("Unlocks at crucible radius 5")
+      && env.doc.getElementById("generators-list") === null,
+      html.slice(0, 120));
+  }
+  // U17: inscription re-etches clues on the current board and future ones.
+  {
+    const { G } = launchGame(22);
+    const gs = G.gameState;
+    const clueCount = () => G.clues.filter(Boolean).length;
+    const before = clueCount();
+    gs.resources.prima_materia.amount = 100000;
+    G.buyInscription();
+    check("U17a inscription etches 3 clues", gs.upgrades.inscription.level === 1
+      && gs.currentPuzzle.inscribed === 3 && clueCount() === before + 3);
+    const solBefore = G.solution.join("");
+    G.startPuzzle();
+    check("U17b fresh puzzle starts pre-inscribed",
+      gs.currentPuzzle.inscribed === Math.min(3, gs.currentPuzzle.removedTotal));
+    gs.upgrades.board_size.radius = 5; gs.currentPuzzle.radius = 5;
+    gs.upgrades.inscription.level = 3;
+    G.startPuzzle();
+    const kinds3 = new Set(G.clues.filter(Boolean).map(c => c.kind));
+    check("U17c flow unlocks at inscription 3", kinds3.has(G.CLUE.FLOW) && kinds3.has(G.CLUE.SPEAR));
+    gs.upgrades.inscription.level = 6;
+    G.startPuzzle();
+    const kinds6 = new Set(G.clues.filter(Boolean).map(c => c.kind));
+    check("U17d all five forms at inscription 6", kinds6.size === 5, [...kinds6].join(","));
+    check("U17e inscribed board stays deducible", G.trySolve(G.clues).res === "solved", `solChanged=${solBefore !== G.solution.join("") ? "yes" : "no"}`);
+  }
+  // U18: buy buttons flip enabled in real time as passive income accrues.
+  {
+    const { G, env } = launchGame(23);
+    G.gameState.resources.prima_materia.amount = 14; // one tick short of 15
+    G.updateUI();
+    check("U18a button disabled while unaffordable", env.doc.getElementById("btn-gen-extractor").disabled === true);
+    G.tick(1); G.updateUI();
+    check("U18b still disabled at 14.5", env.doc.getElementById("btn-gen-extractor").disabled === true);
+    G.tick(1); G.updateUI();
+    check("U18c button enabled in real time at 15", env.doc.getElementById("btn-gen-extractor").disabled === false);
+  }
+  // U19: R5 (the cap) releases all four classical elements.
+  {
+    const { G } = launchGame(24);
+    const gs = G.gameState;
+    gs.upgrades.board_size.radius = 5; gs.currentPuzzle.radius = 5;
+    G.startPuzzle();
+    const greens = G.solution.filter(v => v === 1).length;
+    const per = Math.max(1, Math.round(greens / 10));
+    for (let i = 0; i < G.cells.length; i++) if (G.solution[i] === 1) G.setCell(i, 1);
+    G.reportWin();
+    const e = G.gameState.elements;
+    check("U19 R5 yields all four elements", e.earth.amount === per && e.water.amount === per
+      && e.air.amount === per && e.fire.amount === per, `per=${per}`);
+  }
+  // U20: spear/flow badges track remaining need and flag forced moves.
+  {
+    const { G, env } = launchGame(25);
+    const gs = G.gameState;
+    gs.upgrades.board_size.radius = 5; gs.currentPuzzle.radius = 5;
+    gs.resources.prima_materia.amount = 100000;
+    G.startPuzzle();
+    const board = env.byId.get("board");
+    const badgeAt = idx => board.children.find(c => c.tagName === "TEXT" && c.classList.contains("clue-badge") && +c.dataset.idx === idx);
+    const polyAt = idx => board.children.find(c => c.tagName === "POLYGON" && +c.dataset.idx === idx);
+    const spear = G.clues.findIndex(c => c && c.kind === G.CLUE.SPEAR && c.count >= 2);
+    check("U20a R5 has a multi-green spear clue", spear >= 0);
+    const badge = badgeAt(spear);
+    check("U20b badge present", !!badge);
+    const clue = G.clues[spear];
+    const expected = clue.count - clue.cells.filter(j => G.state[j] === 1).length;
+    check("U20c badge shows remaining need", badge.textContent === String(expected), `text=${badge.textContent} expected=${expected}`);
+    const k = clue.cells.find(j => G.solution[j] === 1 && G.state[j] === 0);
+    G.setCell(k, 1);
+    check("U20d badge tracks painting", badge.dataset.remaining === String(expected - 1));
+    // Force a single unknown: red over every non-green in scope, keep one green.
+    const t = clue.cells.find(j => G.solution[j] === 1 && G.state[j] !== 1);
+    for (const j of clue.cells) if (G.solution[j] === 0 && G.state[j] !== 2) G.setCell(j, 2);
+    for (const j of clue.cells) if (G.solution[j] === 1 && j !== t && G.state[j] !== 1) G.setCell(j, 1);
+    check("U20e forced cell outlined", polyAt(t).classList.contains("forced"));
+    check("U20f badge shows the last needed green", badge.dataset.remaining === "1");
+  }
 }
 
 // ---------- Pacing simulation ----------
-const SOLVE_TIME = { 3: 90, 4: 110, 5: 130, 6: 150, 7: 170 }; // seconds to solve, per radius
+const SOLVE_TIME = { 3: 90, 4: 110, 5: 130 }; // seconds to solve a bare board, per radius
+const INSC_FACTOR = 0.95;  // each etched clue multiplies the solve time
+const INSC_MIN = 30;       // floor for the solve time, seconds
 const MAX_T = 7200;          // 120 min sim cap
 const STALL_SECONDS = 600;   // no progress for 10 min => soft-lock suspicion
 
@@ -378,6 +484,7 @@ function snapshot(G) {
   const g = G.gameState;
   return {
     radius: g.upgrades.board_size.radius,
+    inscription: g.upgrades.inscription.level,
     prima: Math.floor(g.resources.prima_materia.amount),
     generators: { ...g.generators },
     elements: Object.fromEntries(Object.entries(g.elements).map(([k, v]) => [k, Math.floor(v.amount)])),
@@ -432,9 +539,11 @@ function simulate(seed) {
     G.tick(1);
     const gs = G.gameState;
     const radius = gs.upgrades.board_size.radius;
+    const inscribed = Math.min(gs.upgrades.inscription.level * G.INSCRIPTION.step, 60);
+    const solveTime = Math.max(INSC_MIN, Math.round(SOLVE_TIME[radius] * Math.pow(INSC_FACTOR, inscribed)));
 
     // 1) Solve the current puzzle when the player is ready and can afford the feed.
-    if (!gs.currentPuzzle.solved && t - lastSolveAt >= SOLVE_TIME[radius]) {
+    if (!gs.currentPuzzle.solved && t - lastSolveAt >= solveTime) {
       const greens = G.solution.filter(v => v === 1).length;
       if (gs.resources.prima_materia.amount >= greens) {
         for (let i = 0; i < G.cells.length; i++) if (G.solution[i] === 1) G.setCell(i, 1);
@@ -453,7 +562,14 @@ function simulate(seed) {
       mark(`radius ${gs.upgrades.board_size.radius}`, t);
     }
 
-    // 3) Generators: expand whenever affordable.
+    // 3) Inscription: buy back solve time whenever affordable.
+    if (gs.resources.prima_materia.amount >= G.inscriptionCost()) {
+      G.buyInscription();
+      lastProgress = t;
+      mark(`inscription ${gs.upgrades.inscription.level}`, t);
+    }
+
+    // 4) Generators: expand whenever affordable.
     for (const id of Object.keys(G.GENERATORS)) {
       if (gs.upgrades.board_size.radius < G.GENERATORS[id].minRadius) continue;
       if (gs.resources.prima_materia.amount >= G.generatorCost(id)) {
@@ -463,7 +579,7 @@ function simulate(seed) {
       }
     }
 
-    // 4) Prep the next tech: follow the recipe chain for the metals it
+    // 5) Prep the next tech: follow the recipe chain for the metals it
     //    needs (a player reads "requires 3 copper" and makes copper first).
     const next = G.TECHS.find(tt => !gs.techTree[tt.id] && tt.req.every(r => gs.techTree[r]));
     if (next) {
@@ -473,7 +589,7 @@ function simulate(seed) {
           : (G.METAL_RECIPES[rid] ? prepMetal(G, rid, need, mark, t) : false);
         if (acted) lastProgress = t;
       }
-      // 5) Buy the tech when ready.
+      // 6) Buy the tech when ready.
       const ok = Object.entries(next.cost).every(([id, n]) => amountOf(G, id) >= n);
       if (ok) {
         G.buyTech(next.id);
@@ -482,7 +598,7 @@ function simulate(seed) {
       }
     }
 
-    // 6) Stall detection.
+    // 7) Stall detection.
     if (t - lastProgress >= STALL_SECONDS) {
       stall = { at: t, snap: snapshot(G) };
       break;
@@ -513,7 +629,9 @@ function report() {
     results.push(r);
     const ms = r.milestones;
     console.log(`run ${i} (seed ${r.seed}): stone ${fmt(r.stone)}`);
-    console.log(`  radii: ${[4, 5, 6, 7].map(x => `${x}@${fmt(ms[`radius ${x}`])}`).join("  ")}`);
+    console.log(`  radii: ${[4, 5].map(x => `${x}@${fmt(ms[`radius ${x}`])}`).join("  ")}`);
+    const insMarks = Object.keys(ms).filter(k => k.startsWith("inscription ")).sort((a, b) => +a.split(" ")[1] - +b.split(" ")[1]);
+    console.log(`  inscription: ${insMarks.length ? insMarks.map(k => `${k.split(" ")[1]}@${fmt(ms[k])}`).join("  ") : "—"}`);
     console.log(`  metals: lead@${fmt(ms["first lead"])}  iron@${fmt(ms["first iron"])}  copper@${fmt(ms["first copper"])}  silver@${fmt(ms["first silver"])}  gold@${fmt(ms["first gold"])}`);
     console.log(`  techs: ${G_Techs.map(id => `${id}@${fmt(ms[id])}`).join("  ")}`);
     if (r.stall) {
@@ -544,6 +662,8 @@ function report() {
   if (stones.length) assert(`stone ≤ ${A_STONE_MAX / 60} min`, Math.max(...stones) <= A_STONE_MAX, `max=${fmt(Math.max(...stones))} avg=${fmt(avg(stones))}`);
   assert(`first iron ≤ ${A_IRON_MAX / 60} min`, Math.max(...irons) <= A_IRON_MAX, `max=${fmt(Math.max(...irons))}`);
   assert(`first gold ≤ ${A_GOLD_MAX / 60} min`, Math.max(...golds) <= A_GOLD_MAX, `max=${fmt(Math.max(...golds))}`);
+  assert("crucible fully expanded in every run", results.every(r => r.final.radius === 5), `min=${Math.min(...results.map(r => r.final.radius))}`);
+  assert("inscription entwined (≥ level 2 by the stone)", results.every(r => r.final.inscription >= 2), `min=${Math.min(...results.map(r => r.final.inscription))}`);
 
   console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} CHECK(S) FAILED`}`);
   process.exit(failures === 0 ? 0 : 1);

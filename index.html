@@ -442,6 +442,12 @@
     return Math.max(1, Math.round(greens / 10));
   }
 
+  // Total transmutation yield per element for a solve: greens/10, deepened
+  // by inscription — every two etched levels yield one more of each element.
+  function solveYield(greens) {
+    return transmuteYield(greens) + Math.floor(gameState.upgrades.inscription.level / 2);
+  }
+
   const LOCATIONS = {
     leaden_chamber: {
       name: "The Leaden Chamber",
@@ -1019,7 +1025,7 @@
     // The pattern is complete: whatever prima was fed into the green cells
     // is released as the elements the current crucible knows how to make.
     const greens = solution.filter(v => v === 1).length;
-    const per = transmuteYield(greens);
+    const per = solveYield(greens);
     const outputs = [];
     for (const id of ELEMENTS_BY_RADIUS[gameState.currentPuzzle.radius]) {
       addInventory(id, per);
@@ -1124,9 +1130,10 @@
     buildBoard();
 
     const greens = solution.filter(v => v === 1).length;
-    const per = transmuteYield(greens);
+    const per = solveYield(greens);
+    const etch = per - transmuteYield(greens);
     const syms = ELEMENTS_BY_RADIUS[p.radius].map(id => gameState.elements[id].sym).join(" ");
-    recipeEl.textContent = `feeds ${greens} prima  →  ${per} × ${syms}`;
+    recipeEl.textContent = `feeds ${greens} prima  →  ${per} × ${syms}${etch ? `  (etching +${etch})` : ""}`;
 
     setStatus("New puzzle forged.", "info");
     updateUI();
