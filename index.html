@@ -950,9 +950,15 @@
 
   // ---------- Passive Generators ----------
 
+  // The alchemist's own hands always gather a little prima; the machines
+  // below are amplifications of that labor. This base rate also removes
+  // the level-0 soft-lock (a solve can spend your entire stash).
+  const BASE_GATHER = 0.5;
+
   // Applies passive income. Called by the in-browser loop and driven
   // directly by the pacing harness.
   function tick(seconds) {
+    addInventory("prima_materia", BASE_GATHER * seconds);
     for (const id of Object.keys(GENERATORS)) {
       const rate = generatorRate(id);
       if (rate > 0) addInventory(GENERATORS[id].produces, rate * seconds);
