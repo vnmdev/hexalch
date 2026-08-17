@@ -252,6 +252,7 @@
     .status-win { color: var(--green); text-shadow: 0 0 5px var(--green); }
     .status-err { color: var(--red); }
     .status-info { color: #888; }
+    #recipe { margin-top: 6px; font-size: 12px; height: 16px; text-align: center; letter-spacing: .5px; color: #9a8f7a; font-family: 'Courier New', Courier, monospace; }
 
     /* SVG Styles */
     polygon { stroke: #000; stroke-width: 1.5; cursor: pointer; transition: fill .05s, stroke .04s; }
@@ -314,6 +315,7 @@
       <div class="panel-header">The Crucible</div>
       <div class="panel-content" style="display:flex; flex-direction:column; align-items:center;">
         <div id="status"></div>
+        <div id="recipe"></div>
         <div class="board-wrap">
           <svg id="board" preserveAspectRatio="xMidYMin meet"></svg>
           <div id="win-banner">
@@ -344,6 +346,8 @@
     <section id="alembic" class="panel">
       <div class="panel-header">The Alembic</div>
       <div class="panel-content">
+        <div id="generators-list"></div>
+        <hr style="border:0; border-top:1px solid var(--border); margin:20px 0;">
         <div id="upgrades-list"></div>
         <hr style="border:0; border-top:1px solid var(--border); margin:20px 0;">
         <div id="transmute-list"></div>
@@ -432,9 +436,28 @@
     { id: "philosophers_stone", name: "The Philosopher's Stone", desc: "Complete and stabilize the Magnum Opus.", cost: { gold: 5, quintessence: 10 }, req: ["rubedo"] }
   ];
 
+  // Passive generators: the workhorses that gather resources while you transmute.
+  // Costs are paid in prima materia; rates scale 1.5x per level.
+  const GENERATORS = {
+    extractor:    { name: "Prima Extractor", produces: "prima_materia", baseRate: 1,    baseCost: 15,   minRadius: 3 },
+    earth_well:   { name: "Earth Well",      produces: "earth",         baseRate: 0.05, baseCost: 300,  minRadius: 4 },
+    water_well:   { name: "Water Well",      produces: "water",         baseRate: 0.05, baseCost: 800,  minRadius: 5 },
+    air_vent:     { name: "Air Vent",        produces: "air",           baseRate: 0.05, baseCost: 1500, minRadius: 6 },
+    fire_furnace: { name: "Fire Furnace",    produces: "fire",          baseRate: 0.05, baseCost: 2500, minRadius: 7 }
+  };
+
+  function generatorRate(id) {
+    const level = gameState.generators[id] || 0;
+    return level === 0 ? 0 : GENERATORS[id].baseRate * Math.pow(1.5, level - 1);
+  }
+
+  function generatorCost(id) {
+    return Math.floor(GENERATORS[id].baseCost * Math.pow(1.8, gameState.generators[id] || 0));
+  }
+
   let gameState = {
     resources: {
-      prima_materia: { name: "Prima Materia", amount: 0, color: "#d8d8d8" }
+      prima_materia: { name: "Prima Materia", amount: 20, color: "#d8d8d8" }
     },
     metals: {
       lead: { name: "Lead", amount: 0, sym: "Pb" },
@@ -450,6 +473,13 @@
       fire: { name: "Fire", amount: 0, sym: "🜂" },
       quintessence: { name: "Quintessence", amount: 0, sym: "Ω" }
     },
+    generators: {
+      extractor: 0,
+      earth_well: 0,
+      water_well: 0,
+      air_vent: 0,
+      fire_furnace: 0
+    },
     upgrades: {
       board_size: { radius: 3, cost: 50 }
     },
@@ -462,14 +492,15 @@
   let cells = [], idxOf = new Map(), block = [], solution = [], clues = [];
   let state = [], poly = [], txt = [], mirrorMarkers = [], mirrorGovernors = [];
   let highlightedScope = [], hoveredCell = -1, dragging = false, dragApply = null, tool = "green";
-  let R, W, H, ox, oy, boardEl, boardWrapEl, winBannerEl, resListEl, upgradeListEl, techListEl, transmuteListEl, statusEl;
-  let nextPuzzleTimer = null;
+  let R, W, H, ox, oy, boardEl, boardWrapEl, winBannerEl, winSubEl, recipeEl, resListEl, generatorListEl, upgradeListEl, techListEl, transmuteListEl, statusEl;
 
   boardEl = document.getElementById("board");
   boardWrapEl = document.querySelector(".board-wrap");
   winBannerEl = document.getElementById("win-banner");
   resListEl = document.getElementById("resource-list");
-  upgradeListEl = document.getElementById("upgrades-list");
+  winSubEl = document.querySelector("#win-banner .win-sub");
+  recipeEl = document.getElementById("recipe");
+  generatorListEl = document.getElementById("generators-list");
   techListEl = document.getElementById("tech-tree-list");
   transmuteListEl = document.getElementById("transmute-list");
   statusEl = document.getElementById("status");
@@ -877,6 +908,63 @@
       .join(" · ");
   }
 
+  // ---------- Passive Generators ----------
+
+  // Applies passive income. Called by the in-browser loop and driven
+  // directly by the pacing harness.
+  function tick(seconds) {
+    for (const id of Object.keys(GENERATORS)) {
+      const rate = generatorRate(id);
+      if (rate > 0) addInventory(GENERATORS[id].produces, rate * seconds);
+    }
+  }
+
+  function buyGenerator(id) {
+    const gen = GENERATORS[id];
+    if (!gen) return;
+    if (gameState.upgrades.board_size.radius < gen.minRadius) {
+      setStatus(`${gen.name} unlocks at crucible radius ${gen.minRadius}.`, "err");
+      return;
+    }
+    const cost = generatorCost(id);
+    if (gameState.resources.prima_materia.amount < cost) {
+      setStatus("Not enough Prima Materia.", "err");
+      return;
+    }
+    gameState.resources.prima_materia.amount -= cost;
+    gameState.generators[id] = (gameState.generators[id] || 0) + 1;
+    setStatus(`${gen.name} level ${gameState.generators[id]} — ${generatorRate(id).toFixed(2)}/s.`, "win");
+    updateUI();
+    saveProgress();
+  }
+
+  function renderGenerators() {
+    generatorListEl.innerHTML = "";
+    const header = document.createElement("div");
+    header.className = "panel-header";
+    header.style.padding = "5px 0";
+    header.textContent = "Generators";
+    generatorListEl.appendChild(header);
+
+    const radius = gameState.upgrades.board_size.radius;
+    for (const [id, gen] of Object.entries(GENERATORS)) {
+      const level = gameState.generators[id] || 0;
+      const locked = radius < gen.minRadius;
+      const div = document.createElement("div");
+      div.className = "tech-item" + (locked ? " locked" : "");
+      const rate = generatorRate(id);
+      const cost = generatorCost(id);
+      div.innerHTML = `
+        <span class="tech-name">${gen.name}${level > 0 ? ` · Lv ${level}` : ""}</span>
+        <span class="tech-desc">${locked ? `Unlocks at crucible radius ${gen.minRadius}.` : `Produces ${rate.toFixed(2)} ${gen.produces.replaceAll("_", " ")}/s`}</span>
+        ${locked ? "" : `<span class="tech-cost">${cost} Prima Materia</span>`}
+        ${locked ? "" : `<button class="tech-btn primary" id="btn-gen-${id}" ${canAfford({ prima_materia: cost }) ? "" : "disabled"}>${level > 0 ? "Expand" : "Build"}</button>`}
+      `;
+      generatorListEl.appendChild(div);
+      if (!locked) document.getElementById(`btn-gen-${id}`).onclick = () => buyGenerator(id);
+    }
+  }
+
   function startPuzzle() {
     if (nextPuzzleTimer) { clearTimeout(nextPuzzleTimer); nextPuzzleTimer = null; }
     winBannerEl.classList.remove("show");
@@ -962,6 +1050,7 @@
 
   function updateUI() {
     renderResources();
+    renderGenerators();
     renderUpgrades();
     renderTechTree();
     renderTransmutation();
@@ -1147,7 +1236,7 @@
   // ---------- Persistence ----------
 
   function saveProgress() {
-    try { localStorage.setItem("greatwork_v2", JSON.stringify(gameState)); } catch(e) {}
+    try { localStorage.setItem("greatwork_v3", JSON.stringify(gameState)); } catch(e) {}
   }
 
   function mergeInventoryMap(defaultMap, savedMap = {}, legacyMap = {}) {
@@ -1166,7 +1255,7 @@
 
   function loadProgress() {
     try {
-      const d = JSON.parse(localStorage.getItem("greatwork_v2"));
+      const d = JSON.parse(localStorage.getItem("greatwork_v3"));
       if (!d || typeof d !== "object") return;
 
       const defaults = gameState;
@@ -1183,6 +1272,7 @@
         resources: mergeInventoryMap(defaults.resources, d.resources),
         metals: mergeInventoryMap(defaults.metals, d.metals),
         elements: mergeInventoryMap(defaults.elements, d.elements, d.resources),
+        generators: { ...defaults.generators, ...(d.generators || {}) },
         upgrades: {
           board_size: {
             radius,
@@ -1238,6 +1328,7 @@
   document.getElementById("speed-mode").checked = gameState.settings.speedMode;
   setTool("green");
   startPuzzle();
+  setInterval(() => { tick(1); renderResources(); }, 1000);
 
  </script>
 </body>
