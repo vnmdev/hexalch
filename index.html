@@ -503,6 +503,7 @@
 
   let cells = [], idxOf = new Map(), block = [], solution = [], clues = [];
   let state = [], poly = [], txt = [], mirrorMarkers = [], mirrorGovernors = [];
+  let nextPuzzleTimer = null;
   let highlightedScope = [], hoveredCell = -1, dragging = false, dragApply = null, tool = "green";
   let R, W, H, ox, oy, boardEl, boardWrapEl, winBannerEl, winSubEl, recipeEl, resListEl, generatorListEl, upgradeListEl, techListEl, transmuteListEl, statusEl;
 
@@ -513,6 +514,7 @@
   winSubEl = document.querySelector("#win-banner .win-sub");
   recipeEl = document.getElementById("recipe");
   generatorListEl = document.getElementById("generators-list");
+  upgradeListEl = document.getElementById("upgrades-list");
   techListEl = document.getElementById("tech-tree-list");
   transmuteListEl = document.getElementById("transmute-list");
   statusEl = document.getElementById("status");
