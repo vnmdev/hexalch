@@ -101,18 +101,23 @@ try {
   assert(initial.speedMode && initial.speedChecked && initial.redDisabled, "Fast Mode is not the synchronized default");
 
   const solved = await evaluate(`(() => {
-    state = solution.map(value => value === 1 ? 1 : 0);
-    renderCell();
+    gameState.resources.prima_materia.amount = 20;
+    const greens = solution.filter(v => v === 1).length;
+    for (let i = 0; i < cells.length; i++) if (solution[i] === 1) setCell(i, 1);
     document.getElementById("check-board").click();
     return {
       solved: gameState.currentPuzzle.solved,
       prima: gameState.resources.prima_materia.amount,
       earth: gameState.elements.earth.amount,
+      greens,
+      banner: document.getElementById("win-banner").classList.contains("show"),
       status: document.getElementById("status").className
     };
   })()`);
   assert(solved.solved, "a correct board was not accepted");
-  assert(solved.prima === 18.5 && solved.earth === 1, "board rewards were not granted correctly");
+  assert(solved.prima === 20 - solved.greens, `prima feed cost not applied: ${solved.prima}`);
+  assert(solved.earth === Math.max(1, Math.round(solved.greens / 10)), `element yield wrong: ${solved.earth}`);
+  assert(solved.banner, "win banner not shown");
   assert(solved.status === "status-win", `win status class is wrong: ${solved.status}`);
 
   const upgraded = await evaluate(`(() => {

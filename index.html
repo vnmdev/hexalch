@@ -373,6 +373,20 @@
   const FLOW_GLYPHS = ["→", "↗", "↖", "←", "↙", "↘"];
   const MAX_RADIUS = 7;
   const CLUE_BY_RADIUS = [CLUE.SURROUND, CLUE.HALO, CLUE.SPEAR, CLUE.FLOW, CLUE.MIRROR];
+  // Elements the crucible transmutes at each radius. Bigger crucibles
+  // feed more cells and release more elements per solve.
+  const ELEMENTS_BY_RADIUS = {
+    3: ["earth"],
+    4: ["earth", "water"],
+    5: ["earth", "water", "air"],
+    6: ["earth", "water", "air", "fire"],
+    7: ["earth", "water", "air", "fire"]
+  };
+
+  // Yield per unlocked element for a solve with `greens` green cells.
+  function transmuteYield(greens) {
+    return Math.max(1, Math.round(greens / 10));
+  }
 
   const LOCATIONS = {
     leaden_chamber: {
@@ -420,11 +434,9 @@
     gold: { cost: { prima_materia: 1500, silver: 3, quintessence: 1 }, sym: "Au" }
   };
 
+  // The four classical elements come out of the crucible itself; only the
+  // fifth essence is still distilled by hand.
   const ELEMENT_RECIPES = {
-    earth: { cost: { prima_materia: 75 }, sym: "🜃" },
-    water: { cost: { prima_materia: 125, earth: 2 }, sym: "🜄" },
-    air: { cost: { prima_materia: 200, water: 2 }, sym: "🜁" },
-    fire: { cost: { prima_materia: 300, air: 2 }, sym: "🜂" },
     quintessence: { cost: { earth: 10, water: 10, air: 10, fire: 10 }, sym: "Ω" }
   };
 
@@ -799,11 +811,32 @@
     return state[i] === 1 ? 0 : 1;
   }
 
+  // Green cells feed the crucible: one prima materia per cell.
+  // Changing a fed cell back to empty refunds it.
+  function setCell(i, value) {
+    if (value === 1 && state[i] !== 1) {
+      if (gameState.resources.prima_materia.amount < 1) {
+        setStatus("Not enough prima materia to feed the crucible.", "err");
+        return false;
+      }
+      gameState.resources.prima_materia.amount -= 1;
+    } else if (state[i] === 1 && value !== 1) {
+      gameState.resources.prima_materia.amount += 1;
+    }
+    state[i] = value;
+    paintCell(i);
+    updateFades();
+    renderResources();
+    return true;
+  }
+
   function applyPaint(i, button) {
     if (gameState.currentPuzzle.solved) return;
     if (dragApply === null) dragApply = firstValue(i, button);
-    state[i] = dragApply;
-    paintCell(i); updateFades();
+    if (!setCell(i, dragApply)) {
+      dragApply = null;
+      dragging = false;
+    }
   }
 
   boardEl.addEventListener("mousedown", e => {
@@ -855,14 +888,19 @@
   function reportWin() {
     if (gameState.currentPuzzle.solved) return;
     gameState.currentPuzzle.solved = true;
-    setStatus("Success! Transmutation complete.", "win");
 
-    // Larger boards yield more Prima Materia and progressively expose the elements.
-    addInventory("prima_materia", cells.length * 0.5);
-    if (gameState.currentPuzzle.radius >= 3) addInventory("earth", 1);
-    if (gameState.currentPuzzle.radius >= 4) addInventory("water", 1);
-    if (gameState.currentPuzzle.radius >= 5) addInventory("air", 1);
-    if (gameState.currentPuzzle.radius >= 6) addInventory("fire", 1);
+    // The pattern is complete: whatever prima was fed into the green cells
+    // is released as the elements the current crucible knows how to make.
+    const greens = solution.filter(v => v === 1).length;
+    const per = transmuteYield(greens);
+    const outputs = [];
+    for (const id of ELEMENTS_BY_RADIUS[gameState.currentPuzzle.radius]) {
+      addInventory(id, per);
+      outputs.push(`${per} ${gameState.elements[id].sym} ${gameState.elements[id].name.toLowerCase()}`);
+    }
+
+    winSubEl.textContent = `${outputs.join("  ")}  ·  ${greens} prima fed`;
+    setStatus(`Transmutation complete: +${outputs.join(" +")}`, "win");
 
     updateUI();
     saveProgress();
@@ -977,6 +1015,12 @@
     generate(p.radius, p.density, p.attempts, kinds);
     state = cells.map(() => 0);
     buildBoard();
+
+    const greens = solution.filter(v => v === 1).length;
+    const per = transmuteYield(greens);
+    const syms = ELEMENTS_BY_RADIUS[p.radius].map(id => gameState.elements[id].sym).join(" ");
+    recipeEl.textContent = `feeds ${greens} prima  →  ${per} × ${syms}`;
+
     setStatus("New puzzle forged.", "info");
     updateUI();
   }
@@ -1210,23 +1254,27 @@
       document.getElementById(`transmute-m-${id}`).onclick = () => transmute('metal', id);
     }
 
-    // Elements
-    const eHeader = document.createElement("div");
-    eHeader.className = "panel-header";
-    eHeader.style.marginTop = "10px";
-    eHeader.style.padding = "5px 0";
-    eHeader.textContent = "Transmute Elements";
-    transmuteListEl.appendChild(eHeader);
+    // Quintessence: the classical elements are the crucible's own output;
+    // only the fifth essence is still distilled by hand here.
+    const qHeader = document.createElement("div");
+    qHeader.className = "panel-header";
+    qHeader.style.marginTop = "10px";
+    qHeader.style.padding = "5px 0";
+    qHeader.textContent = "Distill Quintessence";
+    transmuteListEl.appendChild(qHeader);
 
-    for (const [id, data] of Object.entries(gameState.elements)) {
+    {
+      const id = "quintessence";
+      const data = gameState.elements[id];
       const recipe = ELEMENT_RECIPES[id];
       const div = document.createElement("div");
       div.className = "tech-item";
       const costStr = formatCost(recipe.cost);
       div.innerHTML = `
         <span class="tech-name">${data.sym} ${data.name}</span>
+        <span class="tech-desc">Unite earth, water, air and fire.</span>
         <span class="tech-cost">${costStr}</span>
-        <button class="transmute-btn" id="transmute-e-${id}" ${canAfford(recipe.cost) ? "" : "disabled"}>Transmute</button>
+        <button class="transmute-btn" id="transmute-e-${id}" ${canAfford(recipe.cost) ? "" : "disabled"}>Distill</button>
       `;
       transmuteListEl.appendChild(div);
       document.getElementById(`transmute-e-${id}`).onclick = () => transmute('element', id);
@@ -1301,7 +1349,10 @@
   };
   document.getElementById("reset-board").onclick = () => {
     if(gameState.currentPuzzle.solved) return;
-    state = cells.map(()=>0); renderCell(); setStatus("Board cleared.", "info");
+    const fed = state.filter(v => v === 1).length;
+    state = cells.map(()=>0);
+    if (fed > 0) gameState.resources.prima_materia.amount += fed;
+    renderCell(); renderResources(); setStatus("Board cleared.", "info");
   };
   document.getElementById("solve-board").onclick = () => {
     for(let i=0;i<cells.length;i++) state[i]= solution[i]===1 ? 1 : (gameState.settings.speedMode ? 0 : 2);
