@@ -307,6 +307,12 @@
     text.over { fill: var(--red); }
     .mirror-marker { fill: #9d8ec7; opacity: 0.75; }
     .mirror-marker.proven { fill: var(--accent); opacity: 1; }
+    .clue-badge { font-family: 'Courier New', Courier, monospace; }
+    .clue-badge.need { fill: var(--accent); }
+    .clue-badge.ok { fill: #6f9e6a; }
+    .clue-badge.over { fill: var(--red); }
+    polygon.forced { stroke: var(--accent); stroke-width: 2; stroke-dasharray: 4 3; }
+    .resource-rate { font-size: 11px; color: #7fa87f; font-family: 'Courier New', Courier, monospace; margin-left: 6px; }
     .hidden { display: none; }
 
     @media (max-width: 1000px) {
@@ -390,8 +396,6 @@
     <section id="alembic" class="panel">
       <div class="panel-header">The Alembic</div>
       <div class="panel-content">
-        <div id="generators-list"></div>
-        <hr style="border:0; border-top:1px solid var(--border); margin:20px 0;">
         <div id="upgrades-list"></div>
         <hr style="border:0; border-top:1px solid var(--border); margin:20px 0;">
         <div id="transmute-list"></div>
@@ -415,17 +419,23 @@
   });
   const SPEAR_GLYPHS = ["╲", "—", "╱"];
   const FLOW_GLYPHS = ["→", "↗", "↖", "←", "↙", "↘"];
-  const MAX_RADIUS = 7;
+  const MAX_RADIUS = 5;
   const CLUE_BY_RADIUS = [CLUE.SURROUND, CLUE.HALO, CLUE.SPEAR, CLUE.FLOW, CLUE.MIRROR];
-  // Elements the crucible transmutes at each radius. Bigger crucibles
-  // feed more cells and release more elements per solve.
+  // Elements the crucible transmutes at each radius. The crucible caps at
+  // radius five, where all four classical elements flow at once; further
+  // progression comes from inscribing clues, not from a bigger board.
   const ELEMENTS_BY_RADIUS = {
     3: ["earth"],
     4: ["earth", "water"],
-    5: ["earth", "water", "air"],
-    6: ["earth", "water", "air", "fire"],
-    7: ["earth", "water", "air", "fire"]
+    5: ["earth", "water", "air", "fire"]
   };
+
+  // Clue inscription: the post-expansion upgrade path. Each level re-etches
+  // `step` stripped clues back onto the board (this one and all future ones),
+  // making the deduction faster. Higher levels unlock new clue forms so the
+  // late game gets varied rather than merely bigger.
+  const INSCRIPTION = { step: 3, baseCost: 100, growth: 1.6 };
+  const INSCRIPTION_KINDS = { flow: 3, mirror: 6 };
 
   // Yield per unlocked element for a solve with `greens` green cells.
   function transmuteYield(greens) {
@@ -459,14 +469,16 @@
       desc: "Where the light of the sun turns base metal to gold.",
       bg: "#1a150a",
       accent: "#e8be2a",
-      minRadius: 6
+      minRadius: 5,
+      minInscription: 3
     },
     aetheric_vault: {
       name: "The Aetheric Vault",
       desc: "Beyond the physical realm, the essence awaits.",
       bg: "#0a0515",
       accent: "#ff5ce0",
-      minRadius: 7
+      minRadius: 5,
+      minInscription: 6
     }
   };
 
@@ -497,9 +509,9 @@
   const GENERATORS = {
     extractor:    { name: "Prima Extractor", produces: "prima_materia", baseRate: 1,    baseCost: 15,   minRadius: 3 },
     earth_well:   { name: "Earth Well",      produces: "earth",         baseRate: 0.05, baseCost: 300,  minRadius: 4 },
-    water_well:   { name: "Water Well",      produces: "water",         baseRate: 0.05, baseCost: 800,  minRadius: 5 },
-    air_vent:     { name: "Air Vent",        produces: "air",           baseRate: 0.05, baseCost: 1500, minRadius: 6 },
-    fire_furnace: { name: "Fire Furnace",    produces: "fire",          baseRate: 0.05, baseCost: 2500, minRadius: 7 }
+    water_well:   { name: "Water Well",      produces: "water",         baseRate: 0.05, baseCost: 800,  minRadius: 4 },
+    air_vent:     { name: "Air Vent",        produces: "air",           baseRate: 0.05, baseCost: 1500, minRadius: 5 },
+    fire_furnace: { name: "Fire Furnace",    produces: "fire",          baseRate: 0.05, baseCost: 2500, minRadius: 5 }
   };
 
   function generatorRate(id) {
@@ -511,6 +523,17 @@
     return Math.floor(GENERATORS[id].baseCost * Math.pow(1.8, gameState.generators[id] || 0));
   }
 
+
+  // Passive income per second for a resource (base gathering for prima,
+  // generators for the elements).
+  function incomeRate(id) {
+    let rate = 0;
+    for (const [gid, gen] of Object.entries(GENERATORS)) {
+      if (gen.produces === id) rate += generatorRate(gid);
+    }
+    if (id === "prima_materia") rate += BASE_GATHER;
+    return rate;
+  }
   let gameState = {
     resources: {
       prima_materia: { name: "Prima Materia", amount: 20, color: "#d8d8d8" }
@@ -537,7 +560,8 @@
       fire_furnace: 0
     },
     upgrades: {
-      board_size: { radius: 3, cost: 50 }
+      board_size: { radius: 3, cost: 50 },
+      inscription: { level: 0 }
     },
     techTree: {},
     settings: { speedMode: true },
@@ -546,10 +570,10 @@
   };
 
   let cells = [], idxOf = new Map(), block = [], solution = [], clues = [];
-  let state = [], poly = [], txt = [], mirrorMarkers = [], mirrorGovernors = [];
+  let state = [], poly = [], txt = [], mirrorMarkers = [], mirrorGovernors = [], clueBadges = [];
   let nextPuzzleTimer = null;
   let highlightedScope = [], hoveredCell = -1, dragging = false, dragApply = null, tool = "green";
-  let R, W, H, ox, oy, boardEl, boardWrapEl, winBannerEl, winSubEl, opusBannerEl, recipeEl, resListEl, generatorListEl, upgradeListEl, techListEl, transmuteListEl, statusEl;
+  let R, W, H, ox, oy, boardEl, boardWrapEl, winBannerEl, winSubEl, opusBannerEl, recipeEl, resListEl, upgradeListEl, techListEl, transmuteListEl, statusEl;
 
   boardEl = document.getElementById("board");
   boardWrapEl = document.querySelector(".board-wrap");
@@ -558,7 +582,6 @@
   resListEl = document.getElementById("resource-list");
   winSubEl = document.querySelector("#win-banner .win-sub");
   recipeEl = document.getElementById("recipe");
-  generatorListEl = document.getElementById("generators-list");
   upgradeListEl = document.getElementById("upgrades-list");
   techListEl = document.getElementById("tech-tree-list");
   transmuteListEl = document.getElementById("transmute-list");
@@ -666,13 +689,15 @@
         protectedCells.add(i);
       }
     }
+    const removed = [];
     for (const i of order) {
       if (protectedCells.has(i)) continue;
       const saved = working[i];
       working[i] = null;
       if (trySolve(working).res !== "solved") working[i] = saved;
+      else removed.push(i);
     }
-    return working;
+    return { working, removed };
   }
 
   function buildOne(density, kinds) {
@@ -681,12 +706,22 @@
       if (sol.every(x => x === 0) || sol.every(x => x === 1)) continue;
       const full = buildCompleteClues(sol, kinds);
       if (trySolve(full).res !== "solved") continue;
-      const working = stripClues(full);
-      return { sol, working };
+      const stripped = stripClues(full);
+      return { sol, working: stripped.working, full, removed: stripped.removed };
     }
   }
 
-  function generate(radius, density, attempts, kinds) {
+  // Clue forms available at a given radius and inscription level: the first
+  // three scale with the crucible, the last two are etched into existence.
+  function clueKinds(radius, insLevel) {
+    const base = Math.min(3, Math.max(1, radius - 2));
+    const kinds = CLUE_BY_RADIUS.slice(0, base);
+    if (insLevel >= INSCRIPTION_KINDS.flow) kinds.push(CLUE.FLOW);
+    if (insLevel >= INSCRIPTION_KINDS.mirror) kinds.push(CLUE.MIRROR);
+    return kinds;
+  }
+
+  function generate(radius, density, attempts, kinds, inscribedWanted) {
     buildTopology(radius);
     let best = null, bestCount = Infinity;
     for (let a = 0; a < (attempts || 1); a++) {
@@ -696,6 +731,16 @@
     }
     solution = best.sol;
     clues = best.working;
+    // Inscription: re-etch the first stripped clues. Adding clues back to a
+    // uniquely solvable board never breaks unique solvability.
+    const p = gameState.currentPuzzle;
+    p.removedFull = best.removed.map(idx => ({ idx, clue: best.full[idx] }));
+    p.removedTotal = best.removed.length;
+    p.inscribed = Math.max(0, Math.min(inscribedWanted || 0, p.removedTotal));
+    for (let k = 0; k < p.inscribed; k++) {
+      const rf = p.removedFull[k];
+      clues[rf.idx] = rf.clue;
+    }
   }
 
   function hexPoints(cx, cy, s) {
@@ -738,7 +783,7 @@
     const pad = s + 4, ox = pad - minX, oy = pad - minY;
     const svgW = (maxX - minX) + 2 * pad, svgH = (maxY - minY) + 2 * pad;
     boardEl.setAttribute("viewBox", `0 0 ${svgW.toFixed(1)} ${svgH.toFixed(1)}`);
-    boardEl.innerHTML = ""; poly = []; txt = []; mirrorMarkers = [];
+    boardEl.innerHTML = ""; poly = []; txt = []; mirrorMarkers = []; clueBadges = [];
     mirrorGovernors = cells.map(() => []);
     highlightedScope = []; hoveredCell = -1;
 
@@ -784,6 +829,22 @@
       boardEl.appendChild(marker);
       mirrorMarkers[i] = marker;
     }
+    // Flow/spear clues get a live badge: how many more greens their scope
+    // still needs (green painted + badge = the clue's count).
+    for (let i = 0; i < cells.length; i++) {
+      const clue = clues[i];
+      if (!clue || (clue.kind !== CLUE.FLOW && clue.kind !== CLUE.SPEAR)) continue;
+      const c = cells[i], badge = document.createElementNS(SVG_NS, "text");
+      badge.setAttribute("x", c.drawX - s * 0.30);
+      badge.setAttribute("y", c.drawY - s * 0.48);
+      badge.setAttribute("text-anchor", "middle");
+      badge.setAttribute("dominant-baseline", "central");
+      badge.setAttribute("font-size", Math.max(9, Math.round(curFont * 0.55)));
+      badge.classList.add("clue-badge");
+      badge.dataset.idx = i;
+      boardEl.appendChild(badge);
+      clueBadges[i] = badge;
+    }
     renderCell();
   }
 
@@ -805,6 +866,7 @@
 
   function updateFades() {
     const red = new Array(cells.length).fill(false);
+    const forced = new Array(cells.length).fill(false);
     for (let i = 0; i < cells.length; i++) {
       const clue = clues[i];
       if (!clue) continue;
@@ -815,10 +877,28 @@
       if (gameState.settings.speedMode && g === clue.count) {
         for (const j of clue.cells) if (state[j] !== 1) red[j] = true;
       }
+      // Flow/spear badges: remaining = count - greens painted. When the
+      // remaining need equals the unknowns in scope, every one of them is
+      // forced green: highlight them as the next valid move.
+      if (clue.kind === CLUE.FLOW || clue.kind === CLUE.SPEAR) {
+        const remaining = clue.count - g;
+        const badge = clueBadges[i];
+        if (badge) {
+          if (remaining < 0) { badge.textContent = "!"; badge.classList.remove("need", "ok"); badge.classList.add("over"); }
+          else if (remaining === 0) { badge.textContent = "✓"; badge.classList.remove("need", "over"); badge.classList.add("ok"); }
+          else { badge.textContent = String(remaining); badge.classList.remove("ok", "over"); badge.classList.add("need"); }
+          badge.dataset.remaining = String(remaining);
+        }
+        if (remaining > 0) {
+          const unk = clue.cells.filter(j => state[j] === 0).length;
+          if (remaining === unk) for (const j of clue.cells) if (state[j] === 0) forced[j] = true;
+        }
+      }
     }
     if (gameState.settings.speedMode) {
       for (let i = 0; i < cells.length; i++) poly[i].classList.toggle("empty", red[i] && state[i] !== 1);
     }
+    for (let i = 0; i < cells.length; i++) poly[i].classList.toggle("forced", forced[i]);
     updateMirrorMarkers();
   }
 
@@ -1029,32 +1109,6 @@
     saveProgress();
   }
 
-  function renderGenerators() {
-    generatorListEl.innerHTML = "";
-    const header = document.createElement("div");
-    header.className = "panel-header";
-    header.style.padding = "5px 0";
-    header.textContent = "Generators";
-    generatorListEl.appendChild(header);
-
-    const radius = gameState.upgrades.board_size.radius;
-    for (const [id, gen] of Object.entries(GENERATORS)) {
-      const level = gameState.generators[id] || 0;
-      const locked = radius < gen.minRadius;
-      const div = document.createElement("div");
-      div.className = "tech-item" + (locked ? " locked" : "");
-      const rate = generatorRate(id);
-      const cost = generatorCost(id);
-      div.innerHTML = `
-        <span class="tech-name">${gen.name}${level > 0 ? ` · Lv ${level}` : ""}</span>
-        <span class="tech-desc">${locked ? `Unlocks at crucible radius ${gen.minRadius}.` : `Produces ${rate.toFixed(2)} ${gen.produces.replaceAll("_", " ")}/s`}</span>
-        ${locked ? "" : `<span class="tech-cost">${cost} Prima Materia</span>`}
-        ${locked ? "" : `<button class="tech-btn primary" id="btn-gen-${id}" ${canAfford({ prima_materia: cost }) ? "" : "disabled"}>${level > 0 ? "Expand" : "Build"}</button>`}
-      `;
-      generatorListEl.appendChild(div);
-      if (!locked) document.getElementById(`btn-gen-${id}`).onclick = () => buyGenerator(id);
-    }
-  }
 
   function startPuzzle() {
     if (nextPuzzleTimer) { clearTimeout(nextPuzzleTimer); nextPuzzleTimer = null; }
@@ -1062,10 +1116,10 @@
     boardWrapEl.classList.remove("success");
     gameState.currentPuzzle.solved = false;
     const p = gameState.currentPuzzle;
-    const unlockedClues = Math.min(CLUE_BY_RADIUS.length, Math.max(1, p.radius - 2));
-    const kinds = CLUE_BY_RADIUS.slice(0, unlockedClues);
+    const insLevel = gameState.upgrades.inscription.level;
+    const kinds = clueKinds(p.radius, insLevel);
 
-    generate(p.radius, p.density, p.attempts, kinds);
+    generate(p.radius, p.density, p.attempts, kinds, insLevel * INSCRIPTION.step);
     state = cells.map(() => 0);
     buildBoard();
 
@@ -1094,6 +1148,35 @@
     } else {
       setStatus("Not enough Prima Materia.", "err");
     }
+  }
+
+  function inscriptionCost() {
+    return Math.floor(INSCRIPTION.baseCost * Math.pow(INSCRIPTION.growth, gameState.upgrades.inscription.level));
+  }
+
+  function buyInscription() {
+    const ins = gameState.upgrades.inscription;
+    const p = gameState.currentPuzzle;
+    const cost = inscriptionCost();
+    if (gameState.resources.prima_materia.amount < cost) {
+      setStatus("Not enough Prima Materia.", "err");
+      return;
+    }
+    gameState.resources.prima_materia.amount -= cost;
+    ins.level += 1;
+    const want = Math.min(ins.level * INSCRIPTION.step, p.removedTotal || 0);
+    for (let k = p.inscribed || 0; k < want; k++) {
+      const rf = p.removedFull[k];
+      clues[rf.idx] = rf.clue;
+    }
+    p.inscribed = want;
+    buildBoard();
+    let note = "";
+    if (ins.level === INSCRIPTION_KINDS.flow) note = " Flow clues join future boards.";
+    else if (ins.level === INSCRIPTION_KINDS.mirror) note = " Mirror clues join future boards.";
+    setStatus(`Clues inscribed: ${p.inscribed} of ${p.removedTotal || 0} on this board.${note}`, "win");
+    updateUI();
+    saveProgress();
   }
 
   function buyTech(techId) {
@@ -1155,7 +1238,6 @@
 
   function updateUI() {
     renderResources();
-    renderGenerators();
     renderUpgrades();
     renderTechTree();
     renderTransmutation();
@@ -1163,8 +1245,9 @@
   }
 
   function checkAndSetLocation() {
+    const insLevel = gameState.upgrades.inscription.level;
     for (const [id, loc] of Object.entries(LOCATIONS)) {
-      if (gameState.upgrades.board_size.radius >= loc.minRadius) gameState.currentLocationId = id;
+      if (gameState.upgrades.board_size.radius >= loc.minRadius && insLevel >= (loc.minInscription || 0)) gameState.currentLocationId = id;
     }
   }
 
@@ -1188,9 +1271,10 @@
       if (data.amount > 0 || id === "prima_materia") {
         const div = document.createElement("div");
         div.className = "resource-item";
+        const rate = incomeRate(id);
         div.innerHTML = `
           <span class="resource-name" style="color:${data.color || 'inherit'}">${data.name}</span>
-          <span class="resource-val">${Math.floor(data.amount)}</span>
+          <span class="resource-val">${Math.floor(data.amount)}${rate > 0 ? `<span class="resource-rate">+${rate.toFixed(2)}/s</span>` : ""}</span>
         `;
         resListEl.appendChild(div);
       }
@@ -1224,9 +1308,10 @@
       if (data.amount > 0) {
         const div = document.createElement("div");
         div.className = "resource-item";
+        const rate = incomeRate(id);
         div.innerHTML = `
           <span class="resource-name">${data.sym} ${data.name}</span>
-          <span class="resource-val">${data.amount}</span>
+          <span class="resource-val">${Math.floor(data.amount)}${rate > 0 ? `<span class="resource-rate">+${rate.toFixed(2)}/s</span>` : ""}</span>
         `;
         resListEl.appendChild(div);
       }
@@ -1235,32 +1320,75 @@
 
   function renderUpgrades() {
     upgradeListEl.innerHTML = "";
-    
-    // Board Size Upgrade
-    const boardCost = gameState.upgrades.board_size.cost;
     const radius = gameState.upgrades.board_size.radius;
+    const insLevel = gameState.upgrades.inscription.level;
     const atMaxRadius = radius >= MAX_RADIUS;
+
+    // Board expansion (the crucible's two size increases).
+    const boardCost = gameState.upgrades.board_size.cost;
     const bDiv = document.createElement("div");
     bDiv.className = "tech-item";
     bDiv.innerHTML = `
       <span class="tech-name">Expand Crucible</span>
-      <span class="tech-desc">${atMaxRadius ? "The crucible is fully expanded." : `Increase radius to ${radius + 1}`}</span>
+      <span class="tech-desc">${atMaxRadius ? "The crucible has reached its final form." : `Increase radius to ${radius + 1}`}</span>
       ${atMaxRadius ? "" : `<span class="tech-cost">${boardCost} Prima Materia</span>`}
       ${atMaxRadius ? "" : `<button class="tech-btn primary" id="btn-upgrade-board" ${canAfford({ prima_materia: boardCost }) ? "" : "disabled"}>Upgrade</button>`}
     `;
     upgradeListEl.appendChild(bDiv);
     if (!atMaxRadius) document.getElementById("btn-upgrade-board").onclick = upgradeBoard;
 
-    const unlockedClues = Math.min(CLUE_BY_RADIUS.length, Math.max(1, radius - 2));
-    const nextClue = CLUE_BY_RADIUS[unlockedClues];
-    const nextLocation = Object.values(LOCATIONS).find(loc => loc.minRadius > radius);
+    // Clue inscription (the long upgrade path: faster deductions).
+    const p = gameState.currentPuzzle;
+    const inscribedNow = p.inscribed || 0;
+    const insCost = inscriptionCost();
+    const nextKind = insLevel < INSCRIPTION_KINDS.flow
+      ? `Flow clues join at level ${INSCRIPTION_KINDS.flow}`
+      : insLevel < INSCRIPTION_KINDS.mirror
+        ? `Mirror clues join at level ${INSCRIPTION_KINDS.mirror}`
+        : "All clue forms etched";
+    const iDiv = document.createElement("div");
+    iDiv.className = "tech-item";
+    iDiv.innerHTML = `
+      <span class="tech-name">Inscribe Clues · Level ${insLevel}</span>
+      <span class="tech-desc">Re-etch ${INSCRIPTION.step} stripped clues onto the board (this one and all future ones) — a faster deduction. ${inscribedNow}/${p.removedTotal || 0} etched here. ${nextKind}.</span>
+      <span class="tech-cost">${insCost} Prima Materia</span>
+      <button class="tech-btn primary" id="btn-inscribe" ${canAfford({ prima_materia: insCost }) ? "" : "disabled"}>Inscribe</button>
+    `;
+    upgradeListEl.appendChild(iDiv);
+    document.getElementById("btn-inscribe").onclick = buyInscription;
+
+    // Generators (the passive income options, all visible at once).
+    const gHeader = document.createElement("div");
+    gHeader.className = "panel-header";
+    gHeader.style.marginTop = "10px";
+    gHeader.style.padding = "5px 0";
+    gHeader.textContent = "Generators";
+    upgradeListEl.appendChild(gHeader);
+    for (const [id, gen] of Object.entries(GENERATORS)) {
+      const level = gameState.generators[id] || 0;
+      const locked = radius < gen.minRadius;
+      const div = document.createElement("div");
+      div.className = "tech-item" + (locked ? " locked" : "");
+      const rate = generatorRate(id);
+      const cost = generatorCost(id);
+      div.innerHTML = `
+        <span class="tech-name">${gen.name}${level > 0 ? ` · Lv ${level}` : ""}</span>
+        <span class="tech-desc">${locked ? `Unlocks at crucible radius ${gen.minRadius}.` : `Produces ${rate.toFixed(2)} ${gen.produces.replaceAll("_", " ")}/s`}</span>
+        ${locked ? "" : `<span class="tech-cost">${cost} Prima Materia</span>`}
+        ${locked ? "" : `<button class="tech-btn primary" id="btn-gen-${id}" ${canAfford({ prima_materia: cost }) ? "" : "disabled"}>${level > 0 ? "Expand" : "Build"}</button>`}
+      `;
+      upgradeListEl.appendChild(div);
+      if (!locked) document.getElementById(`btn-gen-${id}`).onclick = () => buyGenerator(id);
+    }
+
+    const kinds = clueKinds(radius, insLevel);
+    const nextLocation = Object.values(LOCATIONS).find(l => !(radius >= l.minRadius && insLevel >= (l.minInscription || 0)));
     const progress = document.createElement("div");
     progress.className = "tech-item unlocked";
     progress.innerHTML = `
-      <span class="tech-name">Crucible radius ${radius}</span>
-      <span class="tech-desc">Clues: ${CLUE_BY_RADIUS.slice(0, unlockedClues).join(", ")}</span>
-      <span class="tech-desc">${nextClue ? `Next clue: ${nextClue}` : "All clue forms unlocked"}</span>
-      <span class="tech-desc">${nextLocation ? `Next location at radius ${nextLocation.minRadius}` : "All locations unlocked"}</span>
+      <span class="tech-name">Crucible radius ${radius} · Inscription ${insLevel}</span>
+      <span class="tech-desc">Clues: ${kinds.join(", ")}</span>
+      <span class="tech-desc">${nextLocation ? `Next location: ${nextLocation.name} (${radius < nextLocation.minRadius ? `radius ${nextLocation.minRadius}` : `inscription ${nextLocation.minInscription}`})` : "All locations unlocked"}</span>
     `;
     upgradeListEl.appendChild(progress);
   }
@@ -1344,8 +1472,10 @@
 
   // ---------- Persistence ----------
 
+  const SAVE_KEY = "greatwork_v4";
+
   function saveProgress() {
-    try { localStorage.setItem("greatwork_v3", JSON.stringify(gameState)); } catch(e) {}
+    try { localStorage.setItem(SAVE_KEY, JSON.stringify(gameState)); } catch(e) {}
   }
 
   function mergeInventoryMap(defaultMap, savedMap = {}, legacyMap = {}) {
@@ -1364,7 +1494,7 @@
 
   function loadProgress() {
     try {
-      const d = JSON.parse(localStorage.getItem("greatwork_v3"));
+      const d = JSON.parse(localStorage.getItem(SAVE_KEY));
       if (!d || typeof d !== "object") return;
 
       const defaults = gameState;
@@ -1373,6 +1503,7 @@
         ? Math.min(MAX_RADIUS, Math.max(3, Math.floor(savedRadius)))
         : defaults.upgrades.board_size.radius;
       const savedCost = Number(d.upgrades?.board_size?.cost);
+      const insLevel = Math.max(0, Math.floor(Number(d.upgrades?.inscription?.level) || 0));
       const techTree = Object.fromEntries(TECHS.map(tech => [tech.id, Boolean(d.techTree?.[tech.id])]));
       if (d.techTree?.magnum_opus) techTree.philosophers_stone = true;
 
@@ -1386,11 +1517,12 @@
           board_size: {
             radius,
             cost: Number.isFinite(savedCost) && savedCost > 0 ? savedCost : defaults.upgrades.board_size.cost
-          }
+          },
+          inscription: { level: insLevel }
         },
         techTree,
         settings: { ...defaults.settings, ...(d.settings || {}) },
-        currentPuzzle: { ...defaults.currentPuzzle, ...(d.currentPuzzle || {}), radius, solved: false },
+        currentPuzzle: { radius, density: 0.4, attempts: 5, solved: false },
         currentLocationId: d.currentLocationId || defaults.currentLocationId
       };
     } catch(e) { console.error(e); }
@@ -1445,7 +1577,7 @@
   document.getElementById("speed-mode").checked = gameState.settings.speedMode;
   setTool("green");
   startPuzzle();
-  setInterval(() => { tick(1); renderResources(); }, 1000);
+  setInterval(() => { tick(1); updateUI(); }, 1000);
 
  </script>
 </body>
