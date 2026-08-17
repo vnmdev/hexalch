@@ -241,6 +241,21 @@ function runUnitChecks() {
     const e = G.gameState.elements;
     check("U8 R4 yields earth+water", e.earth.amount === per && e.water.amount === per && e.air.amount === 0 && e.fire.amount === 0, `earth=${e.earth.amount} water=${e.water.amount} expect=${per}`);
   }
+  // U9: forging the Philosopher's Stone raises the Magnum Opus overlay.
+  {
+    const { G, env } = launchGame(3);
+    const gs = G.gameState;
+    // Satisfy the whole chain's requirements and afford every cost at once.
+    for (const pool of [gs.resources, gs.metals, gs.elements]) {
+      for (const entry of Object.values(pool)) entry.amount = 100000;
+    }
+    for (const t of G.TECHS) G.buyTech(t.id);
+    const banner = env.doc.getElementById("opus-banner");
+    check("U9a stone complete", gs.techTree.philosophers_stone === true);
+    check("U9b opus overlay shown", banner.classList.contains("show"));
+    env.doc.getElementById("opus-continue").click();
+    check("U9c continue dismisses overlay", !banner.classList.contains("show"));
+  }
 }
 
 // ---------- Pacing simulation ----------
