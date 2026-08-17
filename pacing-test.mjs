@@ -333,6 +333,40 @@ function runUnitChecks() {
     check("U13b generator restored", g2.generators.extractor === 1);
     check("U13c metal restored", g2.metals.lead.amount === 1);
   }
+  // U14: the Check button flags mistakes and accepts a correct board.
+  {
+    const { G, env } = launchGame(17);
+    const gs = G.gameState;
+    const board = env.byId.get("board");
+    const polyAt = idx => board.children.find(c => c.tagName === "POLYGON" && +c.dataset.idx === idx);
+    const wrong = G.solution.findIndex(v => v === 0);
+    G.setCell(wrong, 1); // paint a cell that is not in the solution
+    env.doc.getElementById("check-board").click();
+    check("U14a mistakes reported",
+      env.doc.getElementById("status").textContent === "1 mistakes detected."
+      && env.doc.getElementById("status").className === "status-err"
+      && polyAt(wrong).classList.contains("bad"));
+    env.doc.getElementById("reset-board").click();
+    for (let i = 0; i < G.cells.length; i++) if (G.solution[i] === 1) G.setCell(i, 1);
+    env.doc.getElementById("check-board").click();
+    check("U14b correct board wins via Check", gs.currentPuzzle.solved === true);
+  }
+  // U15: manual mode unlocks the red tool; right-click marks empty.
+  {
+    const { G, env } = launchGame(17);
+    const gs = G.gameState;
+    const speed = env.doc.getElementById("speed-mode");
+    speed.checked = false;
+    speed.onchange({ target: speed });
+    check("U15a manual mode enables red tool",
+      gs.settings.speedMode === false && env.doc.getElementById("tRed").disabled === false);
+    const board = env.byId.get("board");
+    const polyAt = idx => board.children.find(c => c.tagName === "POLYGON" && +c.dataset.idx === idx);
+    const k = G.solution.findIndex(v => v === 0);
+    polyAt(k).fire("mousedown", { button: 2 });
+    env.win.fire("mouseup");
+    check("U15b right-click marks empty in manual mode", G.state[k] === 2);
+  }
 }
 
 // ---------- Pacing simulation ----------
