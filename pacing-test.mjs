@@ -28,9 +28,10 @@ function mulberry32(seed) {
 }
 
 // ---------- DOM stub ----------
-function makeEnv(rand) {
-  const byId = new Map();
-  const timers = [];
+ function makeEnv(rand, sharedStore) {
+   const byId = new Map();
+   const timers = [];
+   const store = sharedStore || new Map();
 
   class El {
     constructor(tag) {
@@ -46,6 +47,7 @@ function makeEnv(rand) {
       this.checked = false;
       this.textContent = "";
       this.id = "";
+      this._listeners = {};
     }
     get classList() {
       const self = this;
@@ -73,10 +75,17 @@ function makeEnv(rand) {
       }
     }
     get innerHTML() { return this._innerHTML; }
-    appendChild(c) { this.children.push(c); return c; }
+    appendChild(c) { c.parent = this; this.children.push(c); return c; }
     setAttribute(k, v) { this._attrs[k] = String(v); }
     getAttribute(k) { return k in this._attrs ? this._attrs[k] : null; }
-    addEventListener() {}
+    addEventListener(type, fn) { (this._listeners[type] ||= []).push(fn); }
+    closest(sel) { return sel === this.tagName.toLowerCase() ? this : null; }
+    // Bubble like the real DOM: listeners on ancestors see the event too.
+    fire(type, props = {}) {
+      const ev = { target: this, button: 0, preventDefault() {}, ...props };
+      let n = this;
+      while (n) { for (const fn of n._listeners[type] || []) fn(ev); n = n.parent; }
+    }
     click() { if (this.onclick) this.onclick(); }
   }
 
@@ -104,8 +113,11 @@ function makeEnv(rand) {
     body: { style: {} },
     readyState: "complete",
   };
-  const win = { addEventListener() {} };
-  const store = new Map();
+   const win = {
+     _listeners: {},
+     addEventListener(type, fn) { (this._listeners[type] ||= []).push(fn); },
+     fire(type) { for (const fn of this._listeners[type] || []) fn({}); },
+   };
   const ls = {
     getItem: k => (store.has(k) ? store.get(k) : null),
     setItem: (k, v) => store.set(k, String(v)),
@@ -135,15 +147,16 @@ const HOOK = `
   get solution() { return solution; },
   get state() { return state; },
   setCell, startPuzzle, reportWin, tick, updateUI,
-  upgradeBoard, buyTech, transmute, buyGenerator,
   generatorCost, generatorRate,
+  saveProgress, loadProgress,
+  upgradeBoard, buyTech, transmute, buyGenerator,
   addInventory, canAfford, spend,
-  ELEMENTS_BY_RADIUS, GENERATORS, TECHS, METAL_RECIPES, ELEMENT_RECIPES, MAX_RADIUS,
+  ELEMENTS_BY_RADIUS, GENERATORS, TECHS, METAL_RECIPES, ELEMENT_RECIPES, MAX_RADIUS, LOCATIONS,
 };
 `;
 
-function launchGame(seed) {
-  const env = makeEnv(mulberry32(seed));
+ function launchGame(seed, store) {
+   const env = makeEnv(mulberry32(seed), store);
   const fn = new Function("document", "window", "localStorage", "setInterval", "setTimeout", "clearTimeout", "Math", "console", SCRIPT_CACHE + HOOK);
   fn(env.doc, env.win, env.ls, env.setIntervalS, env.setTimeoutS, env.clearTimeoutS, env.math, console);
   const G = globalThis.__game;
@@ -255,6 +268,70 @@ function runUnitChecks() {
     check("U9b opus overlay shown", banner.classList.contains("show"));
     env.doc.getElementById("opus-continue").click();
     check("U9c continue dismisses overlay", !banner.classList.contains("show"));
+  }
+  // U10: Fast Mode is the primary, synchronized default.
+  {
+    const { G, env } = launchGame(11);
+    check("U10 fast mode primary",
+      G.gameState.settings.speedMode === true
+      && env.doc.getElementById("speed-mode").checked === true
+      && env.doc.getElementById("tRed").disabled === true);
+  }
+  // U11: location UI (id, title, body background) follows board progression.
+  {
+    const { G, env } = launchGame(11);
+    const gs = G.gameState;
+    const assertLoc = (id) => {
+      const loc = G.LOCATIONS[id];
+      return gs.currentLocationId === id
+        && env.doc.getElementById("loc-title").textContent === loc.name
+        && env.doc.body.style.backgroundColor === loc.bg;
+    };
+    check("U11a start at Leaden Chamber (R3)", assertLoc("leaden_chamber"));
+    gs.resources.prima_materia.amount = 100000;
+    G.upgradeBoard(); G.upgradeBoard();
+    check("U11b Lunar Sanctum at R5", gs.upgrades.board_size.radius === 5 && assertLoc("lunar_sanctum"));
+    G.upgradeBoard(); G.upgradeBoard();
+    check("U11c Aetheric Vault at R7", gs.upgrades.board_size.radius === 7 && assertLoc("aetheric_vault"));
+  }
+  // U12: painting works through the real mouse-event path (click + drag).
+  {
+    const { G, env } = launchGame(11);
+    const gs = G.gameState;
+    const prima0 = gs.resources.prima_materia.amount;
+    const board = env.byId.get("board");
+    const polygons = board.children.filter(c => c.tagName === "POLYGON");
+    check("U12a board rendered polygons", polygons.length === G.cells.length);
+    const i = G.solution.findIndex(v => v === 1);
+    const cell = idx => polygons.find(p => +p.dataset.idx === idx);
+    cell(i).fire("mousedown", { button: 0 });
+    env.win.fire("mouseup");
+    check("U12b click paints green and feeds", G.state[i] === 1 && gs.resources.prima_materia.amount === prima0 - 1);
+    // Drag from an empty cell: green tool starts "on" and stays on across the drag.
+    const empties = G.solution.map((v, k) => (v === 0 ? k : -1)).filter(k => k >= 0);
+    const [k, l] = empties;
+    cell(k).fire("mousedown", { button: 0 }); // paints k green, dragApply=1
+    cell(l).fire("mouseover");                // drag paints l green
+    env.win.fire("mouseup");
+    check("U12c drag paints both cells", G.state[k] === 1 && G.state[l] === 1
+      && gs.resources.prima_materia.amount === prima0 - 3);
+  }
+  // U13: progress survives a save/load round trip (shared localStorage).
+  {
+    const store = new Map();
+    const a = launchGame(13, store);
+    const gs = a.G.gameState;
+    gs.resources.prima_materia.amount = 5000;
+    a.G.upgradeBoard();               // -> R4
+    a.G.buyGenerator("extractor");    // level 1
+    gs.resources.prima_materia.amount = 5000;
+    a.G.transmute("metal", "lead");   // first metal
+    a.G.saveProgress();
+    const b = launchGame(14, store);
+    const g2 = b.G.gameState;
+    check("U13a radius restored", g2.upgrades.board_size.radius === 4);
+    check("U13b generator restored", g2.generators.extractor === 1);
+    check("U13c metal restored", g2.metals.lead.amount === 1);
   }
 }
 
