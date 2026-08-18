@@ -1677,7 +1677,8 @@
       div.innerHTML = `
         <span class="tech-name">${iconHtml(t.id, 16, t.name)}${t.name} ${isUnlocked ? "✓" : ""}</span>
         <span class="tech-desc">${t.desc}</span>
-        ${!isUnlocked ? `<span class="tech-cost">${costStr}</span>` : ""}
+        ${!isUnlocked && isAvailable ? `<span class="tech-cost">${costStr}</span>` : ""}
+        ${!isUnlocked && !isAvailable ? `<span class="tech-cost">Requires ${t.req.filter(r => !gameState.techTree[r]).map(id => getTechById(id).name).join(" and ")}</span>` : ""}
         ${!isUnlocked && isAvailable ? `<button class="tech-btn primary" id="btn-tech-${t.id}">Perform</button>` : ""}
       `;
       techListEl.appendChild(div);

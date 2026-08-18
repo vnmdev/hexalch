@@ -160,7 +160,9 @@ transmutation engine**. This section is the reference for that layer.
   elements. Forging the Stone raises the **Magnum Opus** gold overlay
   (`celebrateMagnumOpus`) with a *Continue the Work* button into endless
   mode; the banner reports the span of the work — total play time
-  (`totalSeconds`, counted in `tick`) and completed boards (U36).
+  (`totalSeconds`, counted in `tick`) and completed boards (U36). A
+  **locked** row (prerequisites unforged) shows "Requires X" instead of
+  a cost, so the chain reads as a roadmap (U41).
 - **Upgrade UI**: the Alembic's upgrades section shows **every option
   at once** — crucible expansion, inscription, and all five generator
   rows (locked rows visible with their unlock radius) — plus a
@@ -254,8 +256,8 @@ transmutation engine**. This section is the reference for that layer.
   shown in the works row, flagged on the banner (U38), and **abandon
   refund** — New Puzzle refunds unsolved paint, never solved (U39), and
   the **clue guide counts** — each row shows how many of its form are on
-  the board (U40). The DOM stub's
-  `textContent` is DOM-faithful: an `innerHTML` set makes `textContent`
+  the board (U40), and **locked-tech requirements** — "Requires X" on
+  rows whose prereqs are unforged (U41). The DOM stub's
   return the tag-stripped text (the win banner renders output icons via
   `innerHTML`).
 - **Simulation**: a greedy player solves on a per-radius interval that
