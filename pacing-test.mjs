@@ -1016,6 +1016,8 @@ function snapshot(G) {
     elements: Object.fromEntries(Object.entries(g.elements).map(([k, v]) => [k, Math.floor(v.amount)])),
     metals: Object.fromEntries(Object.entries(g.metals).map(([k, v]) => [k, Math.floor(v.amount)])),
     techs: Object.keys(g.techTree),
+    works: g.works,
+    attempts: g.currentPuzzle.attempts,
   };
 }
 
@@ -1060,6 +1062,7 @@ function simulate(seed) {
   const milestones = {};
   const mark = (name, t) => { if (!(name in milestones)) milestones[name] = t; };
   let stall = null;
+  let postStoneSolves = 0;
 
   for (let t = 0; t < MAX_T; t++) {
     G.tick(1);
@@ -1077,6 +1080,7 @@ function simulate(seed) {
         lastSolveAt = t;
         lastProgress = t;
         mark(`solve@R${radius}`, t);
+        if (gs.techTree.philosophers_stone) postStoneSolves++;
         G.startPuzzle(); // the auto-next timer's job, done on the harness clock
       }
     }
@@ -1129,9 +1133,11 @@ function simulate(seed) {
       stall = { at: t, snap: snapshot(G) };
       break;
     }
-    if (gs.techTree.philosophers_stone) { mark("stone", t); break; }
+    // The Stone no longer ends the run: the work goes on until the cap, so
+    // the endless deepening (thinner boards per work) is exercised too.
+    if (gs.techTree.philosophers_stone) mark("stone", t);
   }
-  return { seed, milestones, stall, final: snapshot(G), stone: milestones.stone ?? null };
+  return { seed, milestones, stall, final: snapshot(G), stone: milestones.stone ?? null, postStoneSolves };
 }
 
 const fmt = s => {
@@ -1158,6 +1164,7 @@ function report() {
     console.log(`  radii: ${[4, 5].map(x => `${x}@${fmt(ms[`radius ${x}`])}`).join("  ")}`);
     const insMarks = Object.keys(ms).filter(k => k.startsWith("inscription ")).sort((a, b) => +a.split(" ")[1] - +b.split(" ")[1]);
     console.log(`  inscription: ${insMarks.length ? insMarks.map(k => `${k.split(" ")[1]}@${fmt(ms[k])}`).join("  ") : "—"}`);
+    console.log(`  post-stone: ${r.postStoneSolves} boards solved · works ${r.final.works} · attempts ${r.final.attempts}`);
     console.log(`  metals: lead@${fmt(ms["first lead"])}  iron@${fmt(ms["first iron"])}  copper@${fmt(ms["first copper"])}  silver@${fmt(ms["first silver"])}  gold@${fmt(ms["first gold"])}`);
     console.log(`  techs: ${G_Techs.map(id => `${id}@${fmt(ms[id])}`).join("  ")}`);
     if (r.stall) {
@@ -1190,6 +1197,7 @@ function report() {
   assert(`first gold ≤ ${A_GOLD_MAX / 60} min`, Math.max(...golds) <= A_GOLD_MAX, `max=${fmt(Math.max(...golds))}`);
   assert("crucible fully expanded in every run", results.every(r => r.final.radius === 5), `min=${Math.min(...results.map(r => r.final.radius))}`);
   assert("inscription entwined (≥ level 2 by the stone)", results.every(r => r.final.inscription >= 2), `min=${Math.min(...results.map(r => r.final.inscription))}`);
+  assert("the work continues past the stone (≥ 3 boards)", results.every(r => r.postStoneSolves >= 3), `min=${Math.min(...results.map(r => r.postStoneSolves))}`);
 
   console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} CHECK(S) FAILED`}`);
   process.exit(failures === 0 ? 0 : 1);
