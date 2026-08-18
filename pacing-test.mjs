@@ -764,6 +764,23 @@ function runUnitChecks() {
     const sub = env.byId.get("opus-sub");
     check("U36b opus reports time and works", sub.textContent.includes("2m 5s") && sub.textContent.includes("3 boards"));
   }
+  // U37: generators keep working while the tab is closed — on return the
+  // idle yield is credited (capped) and announced.
+  {
+    const store = new Map();
+    const a = launchGame(45, store);
+    a.G.gameState.generators.extractor = 1; // 1 prima/s
+    a.G.saveProgress();
+    const key = "greatwork_v4";
+    const raw = JSON.parse(a.env.ls.getItem(key));
+    raw.savedAt = Date.now() - 3600 * 1000; // away for an hour
+    a.env.ls.setItem(key, JSON.stringify(raw));
+    const b = launchGame(46, store);
+    const prima = b.G.gameState.resources.prima_materia.amount;
+    const primaAtSave = a.G.gameState.resources.prima_materia.amount;
+    check("U37a offline generators produced", Math.floor(prima) === Math.floor(primaAtSave + 3600), `prima=${prima} expect=${primaAtSave + 3600}`);
+    check("U37b return is announced", b.env.doc.getElementById("status").textContent.includes("While you were away"));
+  }
 }
 
 // ---------- Pacing simulation ----------

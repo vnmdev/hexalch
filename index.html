@@ -678,7 +678,7 @@
   let cells = [], idxOf = new Map(), block = [], solution = [], clues = [];
   let state = [], poly = [], txt = [], mirrorMarkers = [], mirrorGovernors = [], clueBadges = [];
   let nextPuzzleTimer = null;
-  let highlightedScope = [], hoveredCell = -1, dragging = false, dragApply = null, tool = "green", puzzleMoves = 0, puzzleSeconds = 0, totalSeconds = 0;
+  let highlightedScope = [], hoveredCell = -1, dragging = false, dragApply = null, tool = "green", puzzleMoves = 0, puzzleSeconds = 0, totalSeconds = 0, offlineMessage = null;
   let R, W, H, ox, oy, boardEl, boardWrapEl, winBannerEl, winSubEl, opusBannerEl, recipeEl, resListEl, upgradeListEl, techListEl, transmuteListEl, statusEl, guideEl, worksEl, clueProgressEl, moveCountEl, solveTimeEl;
 
   boardEl = document.getElementById("board");
@@ -1220,6 +1220,12 @@
   // the level-0 soft-lock (a solve can spend your entire stash).
   const BASE_GATHER = 0.5;
 
+  // Offline progress: generators keep working while the tab is closed.
+  // The credit is capped, and only applied when the absence is long
+  // enough to be a real absence (a refresh is not "away").
+  const OFFLINE_CAP = 8 * 3600; // max seconds of idle time credited
+  const OFFLINE_MIN = 60;       // absences shorter than this earn nothing
+
   // Applies passive income. Called by the in-browser loop and driven
   // directly by the pacing harness.
   function tick(seconds) {
@@ -1751,7 +1757,7 @@
       solved: gameState.currentPuzzle.solved,
       moves: puzzleMoves
     };
-    try { localStorage.setItem(SAVE_KEY, JSON.stringify({ ...gameState, wip })); } catch(e) {}
+    try { localStorage.setItem(SAVE_KEY, JSON.stringify({ ...gameState, wip, savedAt: Date.now() })); } catch(e) {}
   }
 
   function mergeInventoryMap(defaultMap, savedMap = {}, legacyMap = {}) {
@@ -1810,7 +1816,26 @@
         works: Math.max(0, Math.floor(Number(d.works) || 0)),
         wip
       };
+      applyOfflineProgress(d.savedAt);
     } catch(e) { console.error(e); }
+  }
+
+  // Generators keep working while the work is closed: on return, credit the
+  // capped elapsed time and hold the announcement until after the board
+  // restores, so it is the first thing the player sees.
+  function applyOfflineProgress(savedAt) {
+    const dt = Number.isFinite(savedAt) ? Math.min(OFFLINE_CAP, (Date.now() - savedAt) / 1000) : 0;
+    if (dt < OFFLINE_MIN) return;
+    const gains = [];
+    for (const [gid, gen] of Object.entries(GENERATORS)) {
+      const rate = generatorRate(gid);
+      if (rate <= 0) continue;
+      const gain = rate * dt;
+      const pool = gen.produces === "prima_materia" ? gameState.resources : gameState.elements;
+      pool[gen.produces].amount += gain;
+      gains.push(`${gain >= 100 ? Math.floor(gain) : gain.toFixed(1)} ${gen.produces.replaceAll("_", " ")}`);
+    }
+    if (gains.length) offlineMessage = `While you were away, the generators kept working: +${gains.join(", ")}.`;
   }
 
   // ---------- Initialization ----------
@@ -1863,6 +1888,7 @@
   setTool("green");
   if (gameState.wip) restorePuzzle();
   else startPuzzle();
+  if (offlineMessage) { setStatus(offlineMessage, "info"); offlineMessage = null; }
   setInterval(() => { tick(1); updateDynamicUI(); }, 1000);
 
  </script>
