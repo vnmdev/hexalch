@@ -153,6 +153,7 @@ const HOOK = `
   get cells() { return cells; },
   get solution() { return solution; },
   get state() { return state; },
+  get poly() { return poly; },
   get clues() { return clues; },
   get puzzleMoves() { return puzzleMoves; },
   get puzzleSeconds() { return puzzleSeconds; },
@@ -960,6 +961,22 @@ function runUnitChecks() {
     G.startPuzzle();
     env.win.fire("keydown", { key: "z" });
     check("U48e a new board clears the history", G.state.every(v => v === 0) && env.doc.getElementById("status").textContent === "Nothing to undo.");
+  }
+  // U50: hovering a clue guide row outlines that form's clues on the board.
+  {
+    const { G, env } = launchGame(62);
+    const guide = env.byId.get("clue-guide");
+    let row = null, kind = null;
+    for (const child of guide.children) {
+      const k = child.dataset && child.dataset.kind;
+      if (k && G.clues.some(c => c && c.kind === k)) { row = child; kind = k; break; }
+    }
+    check("U50a a guide row with on-board clues exists", !!row);
+    row.fire("mouseenter");
+    const hinted = G.poly.filter(p => p.classList.contains("guide-hint")).length;
+    check("U50b hovering outlines the form's clue cells", hinted === G.clues.filter(c => c && c.kind === kind).length);
+    row.fire("mouseleave");
+    check("U50c leaving clears the outline", G.poly.every(p => !p.classList.contains("guide-hint")));
   }
 }
 
