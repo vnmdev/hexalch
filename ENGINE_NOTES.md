@@ -258,11 +258,13 @@ transmutation engine**. This section is the reference for that layer.
   inscription buys back is the time the player can see (U35).
 - **Save slot `greatwork_v4`**; `loadProgress` merges every pool with
   defaults and, when the save carries a valid in-progress board,
-  **restores it exactly** — solution, clues, paint, inscription and
-  move count as plain data, and `restorePuzzle` rebuilds the
-  board without regenerating. A `pagehide` save on tab close makes a
-  refresh lossless; older saves without a board simply start fresh
-  (U32).
+  **restores it exactly** — solution, clues, paint, inscription, move
+  count, and the board's elapsed seconds as plain data, and
+  `restorePuzzle` rebuilds the board without regenerating (U32, U54).
+  `totalSeconds` lives outside `gameState`, so it is saved and restored
+  explicitly — without this the opus banner's span would reset on every
+  reload (U53). A `pagehide` save on tab close makes a refresh lossless;
+  older saves without a board simply start fresh.
 
 ### Pacing harness (`pacing-test.mjs`)
 - Runs the **real** `<script>` headlessly: a minimal DOM stub, a seeded
@@ -309,7 +311,9 @@ transmutation engine**. This section is the reference for that layer.
   flag persisted with the save (U49), and the **Z undo** — last stroke
   reverted with exact feed reversal (U48), and the **guide hover** — a
   row outlines its form's clue cells while hovered (U50), and the
-  **hint** — one green outlined for a flat 5-prima fee (U52). The DOM
+  **hint** — one green outlined for a flat 5-prima fee (U52), and
+  **time persistence** — total play time and the in-progress board's
+  timer both round-trip through the save (U53, U54). The DOM
   stub's `textContent`
   returns the tag-stripped text (the win
   banner renders output icons via `innerHTML`).
