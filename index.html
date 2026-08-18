@@ -1285,6 +1285,10 @@
     const insLevel = gameState.upgrades.inscription.level;
     const kinds = clueKinds(p.radius, insLevel);
 
+    // After the Stone, the work deepens: every two completed works make the
+    // generator try more times to thin the board (harder), capped at +10.
+    const attempts = 5 + (gameState.techTree.philosophers_stone ? Math.min(10, Math.floor((gameState.works || 0) / 2)) : 0);
+    p.attempts = attempts;
     generate(p.radius, p.density, p.attempts, kinds, insLevel * INSCRIPTION.step);
     const fed = wasSolved ? 0 : state.filter(v => v === 1).length;
     state = cells.map(() => 0);

@@ -165,6 +165,11 @@ transmutation engine**. This section is the reference for that layer.
   (`totalSeconds`, counted in `tick`) and completed boards (U36). A
   **locked** row (prerequisites unforged) shows "Requires X" instead of
   a cost, so the chain reads as a roadmap (U41).
+- **Endless deepening**: after the Stone, `startPuzzle` raises the
+  generator's attempt count — +1 per two completed works, capped at
+  +10 — so each further work yields a thinner, harder board while the
+  pre-Stone pace stays untouched (the harness player paints the
+  solution, so every pacing milestone holds) (U45).
 - **Upgrade UI**: the Alembic's upgrades section shows **every option
   at once** — crucible expansion, inscription, and all five generator
   rows (locked rows visible with their unlock radius) — plus a
@@ -277,9 +282,10 @@ transmutation engine**. This section is the reference for that layer.
   tooltip** — New Puzzle states the exact refund before the click
   (U42), and the **offline duration** — the announcement states how long
   the generators ran, cap included (U43), and the **keyboard shortcuts**
-  — keys drive the tools and the board buttons (U44). The DOM stub's
-  `textContent` returns the tag-stripped text (the win banner renders
-  output icons via `innerHTML`).
+  — keys drive the tools and the board buttons (U44), and the **endless
+  deepening** — post-stone boards thin as the works grow (U45). The
+  DOM stub's `textContent` returns the tag-stripped text (the win
+  banner renders output icons via `innerHTML`).
 - **Simulation**: a greedy player solves on a per-radius interval that
   **shrinks with inscription** (`base * 0.95^etched clues`, floor 30 s),
   upgrades the crucible, **buys inscription whenever affordable**, buys

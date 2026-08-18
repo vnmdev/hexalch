@@ -904,6 +904,20 @@ function runUnitChecks() {
     fire("f");
     check("U44g f toggles fast mode", G.gameState.settings.speedMode === !fast && env.byId.get("speed-mode").checked === !fast);
   }
+  // U45: after the Stone the work deepens with the works.
+  {
+    const { G } = launchGame(57);
+    const gs = G.gameState;
+    for (const pool of [gs.resources, gs.metals, gs.elements]) for (const entry of Object.values(pool)) entry.amount = 100000;
+    check("U45a pre-stone boards keep the base attempts", gs.currentPuzzle.attempts === 5);
+    for (const t of G.TECHS) G.buyTech(t.id);
+    gs.works = 4;
+    G.startPuzzle();
+    check("U45b post-stone boards deepen with works", gs.currentPuzzle.attempts === 7);
+    gs.works = 100;
+    G.startPuzzle();
+    check("U45c deepening is capped", gs.currentPuzzle.attempts === 15);
+  }
 }
 
 // ---------- Pacing simulation ----------
