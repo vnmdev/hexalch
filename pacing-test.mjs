@@ -918,6 +918,16 @@ function runUnitChecks() {
     G.startPuzzle();
     check("U45c deepening is capped", gs.currentPuzzle.attempts === 15);
   }
+  // U51: the opus banner reports the best time when one exists.
+  {
+    const { G, env } = launchGame(61);
+    const gs = G.gameState;
+    for (const pool of [gs.resources, gs.metals, gs.elements]) for (const entry of Object.values(pool)) entry.amount = 100000;
+    gs.bestSeconds = 172; // 2 m 52 s
+    G.celebrateMagnumOpus();
+    const sub = env.byId.get("opus-sub").textContent;
+    check("U51a opus banner reports the best time", sub.includes("boards completed · best 2m 52s"));
+  }
 }
 
 // ---------- Pacing simulation ----------
