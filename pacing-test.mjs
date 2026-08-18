@@ -598,6 +598,16 @@ function runUnitChecks() {
     for (let i = 0; i < G.cells.length; i++) if (G.solution[i] === 1) G.setCell(i, 1);
     check("U26b solved board reads N/N", chip.textContent === `${total}/${total}`);
   }
+  // U27: fresh board states the goal; the win banner reports moves used.
+  {
+    const { G, env } = launchGame(33);
+    check("U27a fresh status states the goal", env.doc.getElementById("status").textContent.includes("clue"));
+    for (let i = 0; i < G.cells.length; i++) if (G.solution[i] === 1) G.setCell(i, 1);
+    const moves = G.state.filter(v => v === 1).length;
+    G.reportWin();
+    const sub = env.doc.querySelector("#win-banner .win-sub");
+    check("U27b win banner shows moves used", moves > 0 && sub.textContent.includes(`${moves} moves`));
+  }
 }
 
 // ---------- Pacing simulation ----------
