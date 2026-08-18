@@ -193,6 +193,12 @@ transmutation engine**. This section is the reference for that layer.
   (one-shot gold box-shadow pulse; removed when it goes unaffordable
   again). Affordable buy buttons carry a quiet accent border so the eye
   can find what it can buy (U25).
+- **Keyboard shortcuts** for the board controls: 1/2/3 select green/
+  red/erase, N forges a new puzzle, C checks, X resets, F toggles Fast
+  Mode (the check/reset handlers are extracted to `checkBoard`/
+  `resetBoard` so clicks and keys share one path; keystrokes aimed at
+  form fields are ignored; every button's tooltip names its key,
+  including the live New Puzzle tooltip) (U44).
 - **Forced-move march**: a `forced` outline cell animates — its dashed
   stroke marches (`forcedMarch`) and thickens (`forcedPulse`) — so the
   one tile you must paint visibly pulses (CSS only; no JS per-frame).
@@ -262,9 +268,10 @@ transmutation engine**. This section is the reference for that layer.
   rows whose prereqs are unforged (U41), and the **live refund
   tooltip** — New Puzzle states the exact refund before the click
   (U42), and the **offline duration** — the announcement states how long
-  the generators ran, cap included (U43). The DOM stub's
-  return the tag-stripped text (the win banner renders output icons via
-  `innerHTML`).
+  the generators ran, cap included (U43), and the **keyboard shortcuts**
+  — keys drive the tools and the board buttons (U44). The DOM stub's
+  `textContent` returns the tag-stripped text (the win banner renders
+  output icons via `innerHTML`).
 - **Simulation**: a greedy player solves on a per-radius interval that
   **shrinks with inscription** (`base * 0.95^etched clues`, floor 30 s),
   upgrades the crucible, **buys inscription whenever affordable**, buys

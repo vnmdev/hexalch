@@ -113,6 +113,10 @@ try {
   assert(initial.revealTitle.includes("nothing"), "Reveal tooltip should state it yields nothing");
   assert(initial.status.length > 0, "status line is empty on a fresh board");
   assert(initial.favicon.startsWith("data:image/svg+xml,"), "favicon is not an inline SVG data URI");
+  const solBefore = await evaluate(`solution.join(",")`);
+  await evaluate(`window.dispatchEvent(new KeyboardEvent("keydown", { key: "n" }))`);
+  const solAfter = await evaluate(`solution.join(",")`);
+  assert(solAfter !== solBefore, "n key did not forge a new board");
 
   // WIP resume: paint a few greens, save, do a real reload, and confirm the
   // same board, paint and economy come back. Then start a fresh board so the
