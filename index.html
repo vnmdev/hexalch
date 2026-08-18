@@ -1320,12 +1320,36 @@
 
   // ---------- UI Management ----------
 
+  // Live registries for the per-second refresh: the ledger amount spans and
+  // the buy buttons. The lists themselves are rebuilt only when structure
+  // changes (updateUI).
+  const amountEls = [];
+  const buyButtons = [];
+
   function updateUI() {
+    amountEls.length = 0;
+    buyButtons.length = 0;
     renderResources();
     renderUpgrades();
     renderTechTree();
     renderTransmutation();
     updateLocationUI();
+  }
+
+  // Per-second refresh: update ledger amounts and buy-button affordability
+  // in place. A full re-render every tick would destroy button hover/focus
+  // and needlessly discard the inline glyph SVGs.
+  function updateDynamicUI() {
+    for (const a of amountEls) {
+      const data = gameState.resources[a.id] || gameState.metals[a.id] || gameState.elements[a.id];
+      if (data) a.el.textContent = String(Math.floor(data.amount));
+    }
+    for (const b of buyButtons) b.el.disabled = !canAfford(b.cost);
+  }
+
+  function registerButton(el, cost) {
+    el.disabled = !canAfford(cost);
+    buyButtons.push({ el, cost });
   }
 
   function checkAndSetLocation() {
@@ -1348,21 +1372,42 @@
     document.body.style.backgroundColor = loc.bg;
   }
 
+  function resourceRow(id, data, sym, showRate) {
+    const div = document.createElement("div");
+    div.className = "resource-item";
+    const icon = document.createElement("span");
+    icon.innerHTML = iconHtml(id, 16, data.name);
+    const name = document.createElement("span");
+    name.className = "resource-name";
+    if (data.color) name.style.color = data.color;
+    name.textContent = sym ? `${sym} ${data.name}` : data.name;
+    const val = document.createElement("span");
+    val.className = "resource-val";
+    const amt = document.createElement("span");
+    amt.className = "res-amount";
+    amt.textContent = String(Math.floor(data.amount));
+    val.appendChild(amt);
+    if (showRate) {
+      const rate = incomeRate(id);
+      if (rate > 0) {
+        const r = document.createElement("span");
+        r.className = "resource-rate";
+        r.textContent = `+${rate.toFixed(2)}/s`;
+        val.appendChild(r);
+      }
+    }
+    div.appendChild(icon);
+    div.appendChild(name);
+    div.appendChild(val);
+    amountEls.push({ el: amt, id });
+    return div;
+  }
+
   function renderResources() {
     resListEl.innerHTML = "";
     // Render basic resources
     for (const [id, data] of Object.entries(gameState.resources)) {
-      if (data.amount > 0 || id === "prima_materia") {
-        const div = document.createElement("div");
-        div.className = "resource-item";
-        const rate = incomeRate(id);
-        div.innerHTML = `
-          ${iconHtml(id, 16, data.name)}
-          <span class="resource-name" style="color:${data.color || 'inherit'}">${data.name}</span>
-          <span class="resource-val">${Math.floor(data.amount)}${rate > 0 ? `<span class="resource-rate">+${rate.toFixed(2)}/s</span>` : ""}</span>
-        `;
-        resListEl.appendChild(div);
-      }
+      if (data.amount > 0 || id === "prima_materia") resListEl.appendChild(resourceRow(id, data, null, true));
     }
     // Render metals
     const metalHeader = document.createElement("div");
@@ -1372,16 +1417,7 @@
     metalHeader.textContent = "Metals";
     resListEl.appendChild(metalHeader);
     for (const [id, data] of Object.entries(gameState.metals)) {
-      if (data.amount > 0) {
-        const div = document.createElement("div");
-        div.className = "resource-item";
-        div.innerHTML = `
-          ${iconHtml(id, 16, data.name)}
-          <span class="resource-name">${data.sym} ${data.name}</span>
-          <span class="resource-val">${data.amount}</span>
-        `;
-        resListEl.appendChild(div);
-      }
+      if (data.amount > 0) resListEl.appendChild(resourceRow(id, data, data.sym, false));
     }
     // Render elements
     const elemHeader = document.createElement("div");
@@ -1391,17 +1427,7 @@
     elemHeader.textContent = "Elements";
     resListEl.appendChild(elemHeader);
     for (const [id, data] of Object.entries(gameState.elements)) {
-      if (data.amount > 0) {
-        const div = document.createElement("div");
-        div.className = "resource-item";
-        const rate = incomeRate(id);
-        div.innerHTML = `
-          ${iconHtml(id, 16, data.name)}
-          <span class="resource-name">${data.sym} ${data.name}</span>
-          <span class="resource-val">${Math.floor(data.amount)}${rate > 0 ? `<span class="resource-rate">+${rate.toFixed(2)}/s</span>` : ""}</span>
-        `;
-        resListEl.appendChild(div);
-      }
+      if (data.amount > 0) resListEl.appendChild(resourceRow(id, data, data.sym, true));
     }
   }
 
@@ -1419,10 +1445,14 @@
       <span class="tech-name">Expand Crucible</span>
       <span class="tech-desc">${atMaxRadius ? "The crucible has reached its final form." : `Increase radius to ${radius + 1}`}</span>
       ${atMaxRadius ? "" : `<span class="tech-cost">${boardCost} Prima Materia</span>`}
-      ${atMaxRadius ? "" : `<button class="tech-btn primary" id="btn-upgrade-board" ${canAfford({ prima_materia: boardCost }) ? "" : "disabled"}>Upgrade</button>`}
+      ${atMaxRadius ? "" : `<button class="tech-btn primary" id="btn-upgrade-board">Upgrade</button>`}
     `;
     upgradeListEl.appendChild(bDiv);
-    if (!atMaxRadius) document.getElementById("btn-upgrade-board").onclick = upgradeBoard;
+    if (!atMaxRadius) {
+      const btn = document.getElementById("btn-upgrade-board");
+      btn.onclick = upgradeBoard;
+      registerButton(btn, { prima_materia: boardCost });
+    }
 
     // Clue inscription (the long upgrade path: faster deductions).
     const p = gameState.currentPuzzle;
@@ -1439,10 +1469,14 @@
       <span class="tech-name">Inscribe Clues · Level ${insLevel}</span>
       <span class="tech-desc">Re-etch ${INSCRIPTION.step} stripped clues onto the board (this one and all future ones) — a faster deduction. ${inscribedNow}/${p.removedTotal || 0} etched here. ${nextKind}.</span>
       <span class="tech-cost">${insCost} Prima Materia</span>
-      <button class="tech-btn primary" id="btn-inscribe" ${canAfford({ prima_materia: insCost }) ? "" : "disabled"}>Inscribe</button>
+      <button class="tech-btn primary" id="btn-inscribe">Inscribe</button>
     `;
     upgradeListEl.appendChild(iDiv);
-    document.getElementById("btn-inscribe").onclick = buyInscription;
+    {
+      const btn = document.getElementById("btn-inscribe");
+      btn.onclick = buyInscription;
+      registerButton(btn, { prima_materia: insCost });
+    }
 
     // Generators (the passive income options, all visible at once).
     const gHeader = document.createElement("div");
@@ -1462,10 +1496,14 @@
         <span class="tech-name">${iconHtml(gen.produces, 14, resName(gen.produces))}${gen.name}${level > 0 ? ` · Lv ${level}` : ""}</span>
         <span class="tech-desc">${locked ? `Unlocks at crucible radius ${gen.minRadius}.` : `Produces ${rate.toFixed(2)} ${gen.produces.replaceAll("_", " ")}/s`}</span>
         ${locked ? "" : `<span class="tech-cost">${cost} Prima Materia</span>`}
-        ${locked ? "" : `<button class="tech-btn primary" id="btn-gen-${id}" ${canAfford({ prima_materia: cost }) ? "" : "disabled"}>${level > 0 ? "Expand" : "Build"}</button>`}
+        ${locked ? "" : `<button class="tech-btn primary" id="btn-gen-${id}">${level > 0 ? "Expand" : "Build"}</button>`}
       `;
       upgradeListEl.appendChild(div);
-      if (!locked) document.getElementById(`btn-gen-${id}`).onclick = () => buyGenerator(id);
+      if (!locked) {
+        const btn = document.getElementById(`btn-gen-${id}`);
+        btn.onclick = () => buyGenerator(id);
+        registerButton(btn, { prima_materia: cost });
+      }
     }
 
     const kinds = clueKinds(radius, insLevel);
@@ -1500,7 +1538,9 @@
       techListEl.appendChild(div);
       
       if (!isUnlocked && isAvailable) {
-        document.getElementById(`btn-tech-${t.id}`).onclick = () => buyTech(t.id);
+        const btn = document.getElementById(`btn-tech-${t.id}`);
+        btn.onclick = () => buyTech(t.id);
+        registerButton(btn, t.cost);
       }
     });
   }
@@ -1524,10 +1564,14 @@
       div.innerHTML = `
         <span class="tech-name">${iconHtml(id, 16, data.name)}${data.sym} ${data.name}</span>
         <span class="tech-cost">${costStr}</span>
-        <button class="transmute-btn" id="transmute-m-${id}" ${canAfford(recipe.cost) ? "" : "disabled"}>Transmute</button>
+        <button class="transmute-btn" id="transmute-m-${id}">Transmute</button>
       `;
       transmuteListEl.appendChild(div);
-      document.getElementById(`transmute-m-${id}`).onclick = () => transmute('metal', id);
+      {
+        const btn = document.getElementById(`transmute-m-${id}`);
+        btn.onclick = () => transmute('metal', id);
+        registerButton(btn, recipe.cost);
+      }
     }
 
     // Quintessence: the classical elements are the crucible's own output;
@@ -1550,10 +1594,14 @@
         <span class="tech-name">${iconHtml("quintessence", 16, data.name)}${data.sym} ${data.name}</span>
         <span class="tech-desc">Unite earth, water, air and fire.</span>
         <span class="tech-cost">${costStr}</span>
-        <button class="transmute-btn" id="transmute-e-${id}" ${canAfford(recipe.cost) ? "" : "disabled"}>Distill</button>
+        <button class="transmute-btn" id="transmute-e-${id}">Distill</button>
       `;
       transmuteListEl.appendChild(div);
-      document.getElementById(`transmute-e-${id}`).onclick = () => transmute('element', id);
+      {
+        const btn = document.getElementById(`transmute-e-${id}`);
+        btn.onclick = () => transmute('element', id);
+        registerButton(btn, recipe.cost);
+      }
     }
   }
 
@@ -1664,7 +1712,7 @@
   document.getElementById("speed-mode").checked = gameState.settings.speedMode;
   setTool("green");
   startPuzzle();
-  setInterval(() => { tick(1); updateUI(); }, 1000);
+  setInterval(() => { tick(1); updateDynamicUI(); }, 1000);
 
  </script>
 </body>
