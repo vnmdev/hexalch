@@ -1441,6 +1441,7 @@
   }
 
   function updateLocationUI() {
+    const prev = gameState.currentLocationId;
     checkAndSetLocation();
     const loc = LOCATIONS[gameState.currentLocationId];
     const titleEl = document.getElementById("loc-title");
@@ -1451,6 +1452,9 @@
     document.documentElement.style.setProperty("--bg", loc.bg);
     document.documentElement.style.setProperty("--accent", loc.accent);
     document.body.style.backgroundColor = loc.bg;
+    if (gameState.currentLocationId !== prev) {
+      setStatus(`The crucible carries you to ${loc.name}.`, "win");
+    }
   }
 
   function resourceRow(id, data, sym, showRate) {

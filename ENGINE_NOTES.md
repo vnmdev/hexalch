@@ -140,7 +140,10 @@ transmutation engine**. This section is the reference for that layer.
   instead of merely bigger.
 - **Locations**: leaden chamber (R3), martial forge (R4), lunar sanctum
   (R5), solar temple (R5 + inscription 3), aetheric vault (R5 +
-  inscription 6). `checkAndSetLocation` applies both gates.
+  inscription 6). `checkAndSetLocation` applies both gates; when the
+  gate actually advances, `updateLocationUI` announces it in the status
+  line ("The crucible carries you to …") exactly once per change, so an
+  unlock is a felt beat, not a silent re-skin (U30).
 - **Tech tree** (`TECHS`) refines the work: nigredo → albedo →
   citrinitas → rubedo → **philosophers_stone**, each costing metals +
   elements. Forging the Stone raises the **Magnum Opus** gold overlay
@@ -213,11 +216,13 @@ transmutation engine**. This section is the reference for that layer.
   **clue guide** tracking
   unlocked forms (U24), the **affordance flash** + **works counter**
   (U25, and works restored on load, U13f), the **clue-progress chip**
-  reading `0/N` fresh and `N/N` solved (U26), and the **goal hint +
-  move count** on the win banner (U27), and the **Reveal cost** — states
-  the forfeited yield and counts no work (U28). The DOM stub's `textContent`
-  is DOM-faithful: an `innerHTML` set makes `textContent` return the
-  tag-stripped text (the win banner renders output icons via `innerHTML`).
+  reading `0/N` fresh and `N/N` solved (U26), the **goal hint + move
+  count** on the win banner (U27), the **Reveal cost** — states the
+  forfeited yield and counts no work (U28), and the **location
+  announcement** firing once per real change (U30). The DOM stub's
+  `textContent` is DOM-faithful: an `innerHTML` set makes `textContent`
+  return the tag-stripped text (the win banner renders output icons via
+  `innerHTML`).
 - **Simulation**: a greedy player solves on a per-radius interval that
   **shrinks with inscription** (`base * 0.95^etched clues`, floor 30 s),
   upgrades the crucible, **buys inscription whenever affordable**, buys
