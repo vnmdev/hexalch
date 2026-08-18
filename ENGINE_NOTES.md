@@ -226,8 +226,11 @@ transmutation engine**. This section is the reference for that layer.
   `satisfied/total` count of the clue rows, updated in `updateFades()`
   on every paint so the solver can see how close the board is (U26).
 - **Goal hint + move count**: a fresh board sets the status line to the
-  goal ("match every clue's number, then Check") so a first-time player
-  is never left without instructions; `setCell()` counts real state
+  goal ("match every clue's number, then Check") — except the first
+  board of a new game, which shows a one-time intro (painting, clues,
+  the keyboard shortcuts); the `tutored` flag (persisted with the save)
+  reverts to the plain hint afterwards, so a first-time player is
+  never left without instructions (U49). `setCell()` counts real state
   changes into `puzzleMoves` (reset per puzzle, same-value repaints
   are skipped), shown live next to the clue chip ("N moves") and in the
   win banner ("… prima fed · N moves") (U27). The count is serialized
@@ -286,8 +289,9 @@ transmutation engine**. This section is the reference for that layer.
   — keys drive the tools and the board buttons (U44), and the **endless
   deepening** — post-stone boards thin as the works grow (U45), and the
   **opus best time** — the banner reports the fastest solve when one
-  exists (U51). The
-  DOM stub's `textContent` returns the tag-stripped text (the win
+  exists (U51), and the **first-board intro** — one-time how-to line,
+  flag persisted with the save (U49). The DOM stub's `textContent`
+  returns the tag-stripped text (the win
   banner renders output icons via `innerHTML`).
 - **Simulation**: a greedy player solves on a per-radius interval that
   **shrinks with inscription** (`base * 0.95^etched clues`, floor 30 s),
