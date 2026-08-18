@@ -154,7 +154,9 @@ const HOOK = `
   get solution() { return solution; },
   get state() { return state; },
   get clues() { return clues; },
-  setCell, startPuzzle, reportWin, tick, updateUI,
+  setCell, startPuzzle, reportWin, tick, updateUI, updateDynamicUI,
+  get amountEls() { return amountEls; },
+  get buyButtons() { return buyButtons; },
   generatorCost, generatorRate,
   saveProgress, loadProgress,
   upgradeBoard, buyTech, transmute, buyGenerator, buyInscription, inscriptionCost,
@@ -517,14 +519,33 @@ function runUnitChecks() {
   // per-icon gradient ids, so every url(#) ref resolves inside its own svg.
   {
     const { G, env } = launchGame(27);
-    const htmlOf = id => env.byId.get(id).children.map(c => c._innerHTML || "").join("");
-    const ledger = htmlOf("resource-list");
+    const htmlOf = el => el.children.map(c => (c._innerHTML || "") + c.children.map(g => g._innerHTML || "").join("")).join("");
+    const ledger = htmlOf(env.byId.get("resource-list"));
     check("U22a ledger icons carry real colours", /#[0-9a-f]{6}/.test(ledger) && ledger.indexOf("currentColor") === -1);
-    const transmute = htmlOf("transmute-list");
+    const transmute = htmlOf(env.byId.get("transmute-list"));
     const refs = [...transmute.matchAll(/url\(#([a-z0-9-]+)\)/g)].map(m => m[1]);
     const defs = [...transmute.matchAll(/linearGradient id="([a-z0-9-]+)"/g)].map(m => m[1]);
     check("U22b gradient refs resolve locally", refs.length >= 5 && refs.every(r => defs.includes(r)));
     check("U22c gradient ids are namespaced", defs.length >= 5 && defs.every(d => d.startsWith("g-")));
+  }
+  // U23: the per-second refresh updates amounts and button states in place
+  // (node identity preserved); only a structural updateUI() rebuilds.
+  {
+    const { G, env } = launchGame(29);
+    const gs = G.gameState;
+    G.updateUI();
+    const btnRef = env.doc.getElementById("btn-gen-extractor");
+    const amt = G.amountEls.find(a => a.id === "prima_materia").el;
+    gs.resources.prima_materia.amount = 9999;
+    G.updateDynamicUI();
+    check("U23a amount updated in place", amt.textContent === "9999");
+    check("U23b button enabled in place", btnRef.disabled === false);
+    check("U23c refresh keeps node identity", env.doc.getElementById("btn-gen-extractor") === btnRef);
+    gs.resources.prima_materia.amount = 3;
+    G.updateDynamicUI();
+    check("U23d button disabled in place", btnRef.disabled === true);
+    G.updateUI();
+    check("U23e full render rebuilds nodes", env.doc.getElementById("btn-gen-extractor") !== btnRef);
   }
 }
 

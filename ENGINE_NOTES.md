@@ -143,9 +143,13 @@ transmutation engine**. This section is the reference for that layer.
   at once** — crucible expansion, inscription, and all five generator
   rows (locked rows visible with their unlock radius) — plus a
   status footer (current clue forms, next location).
-- **Real-time affordability**: the 1 s loop calls `updateUI()` (not
-  just `renderResources()`), so buy buttons flip enabled the second
-  passive income crosses a cost.
+- **Real-time affordability, without DOM churn**: the 1 s loop calls
+  `updateDynamicUI()`, which updates the registered ledger amount spans
+  and buy buttons **in place** (the lists are not rebuilt, so hover/focus
+  survive and the inline glyph SVGs are not discarded every second). A
+  full `updateUI()` rebuild runs only on structural changes (buy,
+  transmute, new puzzle, inscription, radius). Buttons flip enabled the
+  second passive income crosses a cost (U18, U23).
 - Save slot `greatwork_v4` (bumped when the economy shape changed);
   `loadProgress` merges every pool with defaults and starts a fresh
   puzzle at the saved radius + inscription level.
@@ -170,7 +174,9 @@ transmutation engine**. This section is the reference for that layer.
   currentColor, per-icon gradient ids, url(#) refs resolving locally (U22).
   The DOM stub's `textContent` is DOM-faithful: an `innerHTML` set makes
   `textContent` return the tag-stripped text (the win banner now renders
-  output icons via `innerHTML`).
+  output icons via `innerHTML`). **In-place refresh** — amounts and
+  button states update without a rebuild; node identity is preserved
+  across a tick and only a full `updateUI()` rebuilds (U23).
 - **Simulation**: a greedy player solves on a per-radius interval that
   **shrinks with inscription** (`base * 0.95^etched clues`, floor 30 s),
   upgrades the crucible, **buys inscription whenever affordable**, buys
