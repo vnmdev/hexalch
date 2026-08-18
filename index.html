@@ -406,6 +406,7 @@
         </div>
         <div class="controls" style="margin-top:8px;">
           <span id="clue-progress" class="clue-progress" title="clues satisfied / total"></span>
+          <span id="move-count" class="clue-progress" title="state changes made on this board">0 moves</span>
         </div>
         <div class="controls">
           <button id="new-board">New Puzzle</button>
@@ -677,7 +678,7 @@
   let state = [], poly = [], txt = [], mirrorMarkers = [], mirrorGovernors = [], clueBadges = [];
   let nextPuzzleTimer = null;
   let highlightedScope = [], hoveredCell = -1, dragging = false, dragApply = null, tool = "green", puzzleMoves = 0;
-  let R, W, H, ox, oy, boardEl, boardWrapEl, winBannerEl, winSubEl, opusBannerEl, recipeEl, resListEl, upgradeListEl, techListEl, transmuteListEl, statusEl, guideEl, worksEl, clueProgressEl;
+  let R, W, H, ox, oy, boardEl, boardWrapEl, winBannerEl, winSubEl, opusBannerEl, recipeEl, resListEl, upgradeListEl, techListEl, transmuteListEl, statusEl, guideEl, worksEl, clueProgressEl, moveCountEl;
 
   boardEl = document.getElementById("board");
   boardWrapEl = document.querySelector(".board-wrap");
@@ -693,6 +694,9 @@
   guideEl = document.getElementById("clue-guide");
   worksEl = document.getElementById("works-count");
   clueProgressEl = document.getElementById("clue-progress");
+  moveCountEl = document.getElementById("move-count");
+
+  function renderMoves() { moveCountEl.textContent = puzzleMoves + " moves"; }
 
   // ---------- Core Engine ----------
 
@@ -1078,6 +1082,7 @@
     }
     if (state[i] !== value) {
       puzzleMoves++;
+      renderMoves();
       state[i] = value;
       paintCell(i);
       updateFades();
@@ -1251,7 +1256,7 @@
 
     generate(p.radius, p.density, p.attempts, kinds, insLevel * INSCRIPTION.step);
     state = cells.map(() => 0);
-    puzzleMoves = 0;
+    puzzleMoves = 0; renderMoves();
     buildBoard();
 
     const greens = solution.filter(v => v === 1).length;
@@ -1278,7 +1283,7 @@
     p.removedTotal = w.removedTotal || 0;
     p.inscribed = w.inscribed || 0;
     p.solved = !!w.solved;
-    puzzleMoves = 0;
+    puzzleMoves = Math.max(0, Math.floor(Number(w.moves) || 0)); renderMoves();
     buildBoard();
     for (let i = 0; i < cells.length; i++) if (state[i] !== 0) paintCell(i);
     const greens = solution.filter(v => v === 1).length;
@@ -1734,7 +1739,8 @@
       removedFull: (gameState.currentPuzzle.removedFull || []).map(rf => ({ idx: rf.idx, clue: rf.clue })),
       removedTotal: gameState.currentPuzzle.removedTotal || 0,
       inscribed: gameState.currentPuzzle.inscribed || 0,
-      solved: gameState.currentPuzzle.solved
+      solved: gameState.currentPuzzle.solved,
+      moves: puzzleMoves
     };
     try { localStorage.setItem(SAVE_KEY, JSON.stringify({ ...gameState, wip })); } catch(e) {}
   }
