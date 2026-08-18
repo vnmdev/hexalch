@@ -108,6 +108,35 @@ try {
   assert(initial.status.length > 0, "status line is empty on a fresh board");
   assert(initial.favicon.startsWith("data:image/svg+xml,"), "favicon is not an inline SVG data URI");
 
+  // WIP resume: paint a few greens, save, do a real reload, and confirm the
+  // same board, paint and economy come back. Then start a fresh board so the
+  // remaining assertions see a clean slate.
+  const wipBefore = await evaluate(`(() => {
+    const greens = [];
+    for (let i = 0; i < cells.length; i++) if (solution[i] === 1) greens.push(i);
+    for (const i of greens.slice(0, 3)) setCell(i, 1);
+    saveProgress();
+    return { painted: 3, prima: Math.floor(gameState.resources.prima_materia.amount), sol: solution.join(",") };
+  })()`);
+  let wipAfter = null;
+  for (let attempt = 0; attempt < 100 && !wipAfter; attempt++) {
+    try {
+      const r = await evaluate(`({
+        ready: document.readyState,
+        painted: state.filter(v => v === 1).length,
+        prima: Math.floor(gameState.resources.prima_materia.amount),
+        sol: solution.join(",")
+      })`);
+      if (r.ready === "complete") wipAfter = r;
+    } catch {}
+    if (!wipAfter) await sleep(100);
+  }
+  assert(wipAfter, "page did not come back after reload");
+  assert(wipAfter.sol === wipBefore.sol, "reload did not restore the same board");
+  assert(wipAfter.painted === wipBefore.painted, `reload lost painted cells: ${wipAfter.painted}/${wipBefore.painted}`);
+  assert(wipAfter.prima === wipBefore.prima, "reload changed the prima balance");
+  await evaluate(`document.getElementById("new-board").click()`);
+
   const icons = await evaluate(`({
     ledger: document.querySelectorAll("#resource-list .icon svg").length,
     tech: document.querySelectorAll("#tech-tree-list .icon svg").length,

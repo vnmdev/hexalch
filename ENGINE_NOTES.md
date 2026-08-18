@@ -190,9 +190,13 @@ transmutation engine**. This section is the reference for that layer.
   changes into `puzzleMoves` (reset per puzzle, same-value repaints
   are skipped), and the win banner reports it — "… prima fed · N moves"
   (U27).
-- Save slot `greatwork_v4` (bumped when the economy shape changed);
-  `loadProgress` merges every pool with defaults and starts a fresh
-  puzzle at the saved radius + inscription level.
+- **Save slot `greatwork_v4`**; `loadProgress` merges every pool with
+  defaults and, when the save carries a valid in-progress board,
+  **restores it exactly** — solution, clues, paint and inscription
+  state are serialized as plain data and `restorePuzzle` rebuilds the
+  board without regenerating. A `pagehide` save on tab close makes a
+  refresh lossless; older saves without a board simply start fresh
+  (U32).
 
 ### Pacing harness (`pacing-test.mjs`)
 - Runs the **real** `<script>` headlessly: a minimal DOM stub, a seeded
@@ -204,7 +208,7 @@ transmutation engine**. This section is the reference for that layer.
   tick income, per-radius yields incl. all-four-at-R5,
   reveal-gives-nothing, reset refunds, win feedback, Magnum Opus
   overlay), fast mode, location ladder incl. inscription gates, mouse
-  painting, save/load (incl. inscription + pre-inscribed restart),
+  painting, save/load (incl. inscription, pre-inscribed restart, WIP resume),
   Check, manual mode, **unified upgrades list** (U16), **inscription
   mechanics** — clue etching, pre-inscription, flow/mirror unlocks,
   deducibility (U17) — **real-time button flips** (U18), and **flow/

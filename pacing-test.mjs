@@ -652,6 +652,26 @@ function runUnitChecks() {
     G.updateUI();
     check("U30d inscription gate opens the temple", gs.currentLocationId === "solar_temple" && status().includes("Solar Temple"));
   }
+  // U32: an in-progress board (paint, clues, spent economy) survives a
+  // save/load round trip; a fresh launch still generates.
+  {
+    const store = new Map();
+    const a = launchGame(37, store);
+    const gs = a.G.gameState;
+    const greens = [];
+    for (let i = 0; i < a.G.cells.length; i++) if (a.G.solution[i] === 1) greens.push(i);
+    const half = greens.slice(0, Math.floor(greens.length / 2));
+    for (const i of half) a.G.setCell(i, 1);
+    const primaAfterPaint = gs.resources.prima_materia.amount;
+    a.G.saveProgress();
+    const b = launchGame(38, store);
+    check("U32a solution restored", b.G.solution.join(",") === a.G.solution.join(","));
+    check("U32b paint restored", b.G.state.filter(v => v === 1).length === half.length);
+    check("U32c clues restored", b.G.clues.filter(Boolean).length === a.G.clues.filter(Boolean).length);
+    check("U32d economy matches the restored board", b.G.gameState.resources.prima_materia.amount === primaAfterPaint);
+    const c = launchGame(39);
+    check("U32e fresh launch still generates", c.G.solution.length === c.G.cells.length && c.G.clues.some(clue => clue));
+  }
 }
 
 // ---------- Pacing simulation ----------

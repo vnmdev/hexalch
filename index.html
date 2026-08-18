@@ -1109,6 +1109,7 @@
   });
   boardEl.addEventListener("mouseleave", () => showScope(-1));
   window.addEventListener("mouseup", () => { if (dragging) { dragging = false; afterMove(); } });
+  window.addEventListener("pagehide", saveProgress);
   boardEl.addEventListener("contextmenu", e => e.preventDefault());
 
   function setTool(t) {
@@ -1260,6 +1261,34 @@
     recipeEl.innerHTML = `feeds ${greens} prima  →  ${per} × ${symIcons}${etch ? `  (etching +${etch})` : ""}`;
 
     setStatus("New puzzle forged — match every clue's number, then Check.", "info");
+    updateUI();
+  }
+
+  // Restore the board that was in progress at the last save: the solution,
+  // clues and paint are serialized as-is, so no regeneration is needed.
+  function restorePuzzle() {
+    const w = gameState.wip;
+    gameState.wip = null;
+    const p = gameState.currentPuzzle;
+    buildTopology(p.radius);
+    solution = w.solution.slice();
+    state = w.state.slice();
+    clues = w.clues.map(c => (c ? { count: c.count, kind: c.kind, axis: c.axis, cells: c.cells.slice() } : null));
+    p.removedFull = (w.removedFull || []).map(rf => ({ idx: rf.idx, clue: rf.clue }));
+    p.removedTotal = w.removedTotal || 0;
+    p.inscribed = w.inscribed || 0;
+    p.solved = !!w.solved;
+    puzzleMoves = 0;
+    buildBoard();
+    for (let i = 0; i < cells.length; i++) if (state[i] !== 0) paintCell(i);
+    const greens = solution.filter(v => v === 1).length;
+    const per = solveYield(greens);
+    const etch = per - transmuteYield(greens);
+    const symIcons = ELEMENTS_BY_RADIUS[p.radius].map(id => iconHtml(id, 13, gameState.elements[id].name)).join(" ");
+    recipeEl.innerHTML = `feeds ${greens} prima  →  ${per} × ${symIcons}${etch ? `  (etching +${etch})` : ""}`;
+    if (p.solved) { winBannerEl.classList.remove("show"); boardWrapEl.classList.remove("success"); }
+    setStatus("The crucible remembers where you left off.", "info");
+    updateFades();
     updateUI();
   }
 
@@ -1695,7 +1724,19 @@
   const SAVE_KEY = "greatwork_v4";
 
   function saveProgress() {
-    try { localStorage.setItem(SAVE_KEY, JSON.stringify(gameState)); } catch(e) {}
+    // The in-progress board is saved with the economy: solution, paint and
+    // clues are plain data, so a refresh restores the work exactly.
+    const wip = {
+      radius: R,
+      solution: solution.slice(),
+      state: state.slice(),
+      clues: clues.map(c => (c ? { count: c.count, kind: c.kind, axis: c.axis, cells: c.cells.slice() } : null)),
+      removedFull: (gameState.currentPuzzle.removedFull || []).map(rf => ({ idx: rf.idx, clue: rf.clue })),
+      removedTotal: gameState.currentPuzzle.removedTotal || 0,
+      inscribed: gameState.currentPuzzle.inscribed || 0,
+      solved: gameState.currentPuzzle.solved
+    };
+    try { localStorage.setItem(SAVE_KEY, JSON.stringify({ ...gameState, wip })); } catch(e) {}
   }
 
   function mergeInventoryMap(defaultMap, savedMap = {}, legacyMap = {}) {
@@ -1727,6 +1768,13 @@
       const techTree = Object.fromEntries(TECHS.map(tech => [tech.id, Boolean(d.techTree?.[tech.id])]));
       if (d.techTree?.magnum_opus) techTree.philosophers_stone = true;
 
+      const cellCount = 1 + 3 * radius * (radius + 1);
+      const wip = (d.wip && Number.isInteger(d.wip.radius) && d.wip.radius === radius
+        && Array.isArray(d.wip.solution) && d.wip.solution.length === cellCount
+        && Array.isArray(d.wip.state) && d.wip.state.length === cellCount
+        && Array.isArray(d.wip.clues) && d.wip.clues.length === cellCount)
+        ? d.wip : null;
+
       gameState = {
         ...defaults,
         resources: mergeInventoryMap(defaults.resources, d.resources),
@@ -1744,7 +1792,8 @@
         settings: { ...defaults.settings, ...(d.settings || {}) },
         currentPuzzle: { radius, density: 0.4, attempts: 5, solved: false },
         currentLocationId: d.currentLocationId || defaults.currentLocationId,
-        works: Math.max(0, Math.floor(Number(d.works) || 0))
+        works: Math.max(0, Math.floor(Number(d.works) || 0)),
+        wip
       };
     } catch(e) { console.error(e); }
   }
@@ -1797,7 +1846,8 @@
   loadProgress();
   document.getElementById("speed-mode").checked = gameState.settings.speedMode;
   setTool("green");
-  startPuzzle();
+  if (gameState.wip) restorePuzzle();
+  else startPuzzle();
   setInterval(() => { tick(1); updateDynamicUI(); }, 1000);
 
  </script>
