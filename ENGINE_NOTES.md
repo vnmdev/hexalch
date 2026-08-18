@@ -156,6 +156,18 @@ transmutation engine**. This section is the reference for that layer.
   appears exactly when the form can appear (surround at R3, halo at R4,
   spear at R5, flow at inscription 3, mirror at inscription 6), so the
   player learns each language the moment it matters (U24).
+- **Affordance flash**: when a buy button flips unaffordable→affordable
+  between two ticks, `updateDynamicUI()` adds the `just-affordable` class
+  (one-shot gold box-shadow pulse; removed when it goes unaffordable
+  again). Affordable buy buttons carry a quiet accent border so the eye
+  can find what it can buy (U25).
+- **Forced-move march**: a `forced` outline cell animates — its dashed
+  stroke marches (`forcedMarch`) and thickens (`forcedPulse`) — so the
+  one tile you must paint visibly pulses (CSS only; no JS per-frame).
+- **Works counter** (`gameState.works`, in the Crucible): counts
+  completed puzzles, increments in `reportWin`, rendered by
+  `renderWorks()` on structural updates, and persisted through the
+  save/load round trip (U13f, U25e/f).
 - Save slot `greatwork_v4` (bumped when the economy shape changed);
   `loadProgress` merges every pool with defaults and starts a fresh
   puzzle at the saved radius + inscription level.
@@ -178,10 +190,12 @@ transmutation engine**. This section is the reference for that layer.
   line/arrow clues (U21) — and **coloured glyphs**: real colours, no
   currentColor, per-icon gradient ids, url(#) refs resolving locally (U22),
   **in-place refresh** (amounts/buttons update without a rebuild; node
-  identity preserved across a tick, U23), and the **clue guide** tracking
-  unlocked forms (U24). The DOM stub's `textContent` is DOM-faithful: an
-  `innerHTML` set makes `textContent` return the tag-stripped text (the
-  win banner renders output icons via `innerHTML`).
+  identity preserved across a tick, U23), the **clue guide** tracking
+  unlocked forms (U24), the **affordance flash** + **works counter**
+  (U25, and works restored on load, U13f). The DOM stub's `textContent`
+  is DOM-faithful: an `innerHTML` set makes `textContent` return the
+  tag-stripped text (the win banner renders output icons via
+  `innerHTML`).
 - **Simulation**: a greedy player solves on a per-radius interval that
   **shrinks with inscription** (`base * 0.95^etched clues`, floor 30 s),
   upgrades the crucible, **buys inscription whenever affordable**, buys

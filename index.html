@@ -258,6 +258,13 @@
     }
     button.primary:hover { background: #f5cf45; transform: translateY(-1px); }
     button:disabled { cursor: not-allowed; opacity: 0.4; }
+    .tech-btn.primary:not(:disabled), .transmute-btn:not(:disabled) { border-color: var(--accent); }
+    .tech-btn.just-affordable, .transmute-btn.just-affordable { animation: affordFlash 1s ease-out; }
+    @keyframes affordFlash {
+      0% { box-shadow: 0 0 0 0 var(--accent-glow); }
+      35% { box-shadow: 0 0 16px 5px var(--accent-glow); }
+      100% { box-shadow: 0 0 0 0 rgba(232, 190, 42, 0); }
+    }
 
     /* Alembic (Tech Tree / Transmutation) */
     .tech-item {
@@ -293,6 +300,7 @@
 
     /* Status Messages */
     #status { margin-top: 10px; font-size: 14px; height: 20px; text-align: center; font-style: italic; }
+    .works-count { margin-top: 6px; font-size: 11px; color: #777; letter-spacing: 0.04em; }
     .status-win { color: var(--green); text-shadow: 0 0 5px var(--green); }
     .status-err { color: var(--red); }
     .status-info { color: #888; }
@@ -316,7 +324,15 @@
     .clue-badge.need { fill: var(--accent); }
     .clue-badge.ok { fill: #6f9e6a; }
     .clue-badge.over { fill: var(--red); }
-    polygon.forced { stroke: var(--accent); stroke-width: 2; stroke-dasharray: 4 3; }
+    polygon.forced {
+      stroke: var(--accent);
+      stroke-width: 2;
+      stroke-dasharray: 4 3;
+      filter: drop-shadow(0 0 5px var(--accent-glow));
+      animation: forcedMarch 0.9s linear infinite, forcedPulse 1.1s ease-in-out infinite;
+    }
+    @keyframes forcedMarch { to { stroke-dashoffset: -14; } }
+    @keyframes forcedPulse { 50% { stroke-width: 3.5px; } }
     .resource-rate { font-size: 11px; color: #7fa87f; font-family: 'Courier New', Courier, monospace; margin-left: 6px; }
     .hidden { display: none; }
 
@@ -370,6 +386,7 @@
       <div class="panel-header">The Crucible</div>
       <div class="panel-content" style="display:flex; flex-direction:column; align-items:center;">
         <div id="status"></div>
+        <div id="works-count" class="works-count"></div>
         <div id="recipe"></div>
         <div class="board-wrap">
           <svg id="board" preserveAspectRatio="xMidYMin meet"></svg>
@@ -646,14 +663,15 @@
     techTree: {},
     settings: { speedMode: true },
     currentPuzzle: { radius: 3, density: 0.4, attempts: 5, solved: false },
-    currentLocationId: "leaden_chamber"
+    currentLocationId: "leaden_chamber",
+    works: 0
   };
 
   let cells = [], idxOf = new Map(), block = [], solution = [], clues = [];
   let state = [], poly = [], txt = [], mirrorMarkers = [], mirrorGovernors = [], clueBadges = [];
   let nextPuzzleTimer = null;
   let highlightedScope = [], hoveredCell = -1, dragging = false, dragApply = null, tool = "green";
-  let R, W, H, ox, oy, boardEl, boardWrapEl, winBannerEl, winSubEl, opusBannerEl, recipeEl, resListEl, upgradeListEl, techListEl, transmuteListEl, statusEl, guideEl;
+  let R, W, H, ox, oy, boardEl, boardWrapEl, winBannerEl, winSubEl, opusBannerEl, recipeEl, resListEl, upgradeListEl, techListEl, transmuteListEl, statusEl, guideEl, worksEl;
 
   boardEl = document.getElementById("board");
   boardWrapEl = document.querySelector(".board-wrap");
@@ -667,6 +685,7 @@
   transmuteListEl = document.getElementById("transmute-list");
   statusEl = document.getElementById("status");
   guideEl = document.getElementById("clue-guide");
+  worksEl = document.getElementById("works-count");
 
   // ---------- Core Engine ----------
 
@@ -1111,6 +1130,7 @@
   function reportWin() {
     if (gameState.currentPuzzle.solved) return;
     gameState.currentPuzzle.solved = true;
+    gameState.works = (gameState.works || 0) + 1;
 
     // The pattern is complete: whatever prima was fed into the green cells
     // is released as the elements the current crucible knows how to make.
@@ -1351,6 +1371,7 @@
     renderTechTree();
     renderTransmutation();
     renderClueGuide();
+    renderWorks();
     updateLocationUI();
   }
 
@@ -1362,7 +1383,12 @@
       const data = gameState.resources[a.id] || gameState.metals[a.id] || gameState.elements[a.id];
       if (data) a.el.textContent = String(Math.floor(data.amount));
     }
-    for (const b of buyButtons) b.el.disabled = !canAfford(b.cost);
+    for (const b of buyButtons) {
+      const afford = canAfford(b.cost);
+      if (afford && b.el.disabled) b.el.classList.add("just-affordable");
+      else if (!afford && !b.el.disabled) b.el.classList.remove("just-affordable");
+      b.el.disabled = !afford;
+    }
   }
 
   function registerButton(el, cost) {
@@ -1386,6 +1412,10 @@
       line.appendChild(text);
       guideEl.appendChild(line);
     }
+  }
+
+  function renderWorks() {
+    worksEl.textContent = `Works completed: ${gameState.works}`;
   }
 
   function checkAndSetLocation() {
@@ -1694,7 +1724,8 @@
         techTree,
         settings: { ...defaults.settings, ...(d.settings || {}) },
         currentPuzzle: { radius, density: 0.4, attempts: 5, solved: false },
-        currentLocationId: d.currentLocationId || defaults.currentLocationId
+        currentLocationId: d.currentLocationId || defaults.currentLocationId,
+        works: Math.max(0, Math.floor(Number(d.works) || 0))
       };
     } catch(e) { console.error(e); }
   }
