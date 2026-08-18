@@ -672,6 +672,44 @@ function runUnitChecks() {
     const c = launchGame(39);
     check("U32e fresh launch still generates", c.G.solution.length === c.G.cells.length && c.G.clues.some(clue => clue));
   }
+  // U33: halo clues carry the same live badge + forced outline as the
+  // line/arrow clues.
+  {
+    const { G, env } = launchGame(40);
+    const gs = G.gameState;
+    gs.upgrades.board_size.radius = 4; gs.currentPuzzle.radius = 4;
+    gs.resources.prima_materia.amount = 100000;
+    G.startPuzzle();
+    const board = env.byId.get("board");
+    const polyAt = idx => board.children.find(c => c.tagName === "POLYGON" && +c.dataset.idx === idx);
+    const badgeAt = idx => board.children.find(c => c.tagName === "TEXT" && c.classList.contains("clue-badge") && +c.dataset.idx === idx);
+    const halo = G.clues.findIndex(c => c && c.kind === G.CLUE.HALO);
+    check("U33a R4 board has a halo clue", halo >= 0);
+    check("U33b halo clue carries a badge", Boolean(badgeAt(halo)));
+    let found = null;
+    outer:
+    for (let i = 0; i < G.clues.length; i++) {
+      const c = G.clues[i];
+      if (!c || c.kind !== G.CLUE.HALO || c.count === 0) continue;
+      for (const t of c.cells) {
+        if (G.solution[t] !== 1) continue;
+        const red = new Array(G.cells.length).fill(false);
+        for (const c2 of G.clues) {
+          if (!c2 || c2.cells.includes(t)) continue;
+          const g = c2.cells.filter(j => G.solution[j] === 1).length;
+          if (g === c2.count) for (const j of c2.cells) if (G.solution[j] !== 1) red[j] = true;
+        }
+        const live = c.cells.filter(j => j === t || (G.solution[j] === 0 && !red[j]));
+        if (live.length === 1) { found = { i, c, t }; break outer; }
+      }
+    }
+    check("U33c one-tile-left halo situation exists", !!found);
+    if (found) {
+      for (let i = 0; i < G.cells.length; i++) if (G.solution[i] === 1 && i !== found.t) G.setCell(i, 1);
+      check("U33d last halo tile outlined", polyAt(found.t).classList.contains("forced"));
+      check("U33e badge shows the last needed green", badgeAt(found.i).dataset.remaining === "1");
+    }
+  }
 }
 
 // ---------- Pacing simulation ----------
