@@ -1096,6 +1096,35 @@ function runUnitChecks() {
     const raw = JSON.parse(env.ls.getItem("greatwork_v4"));
     check("U58c the beat flag persists", raw.deepeningNoted === true);
   }
+  // U59: the win banner counts down, and a click holds the board.
+  {
+    const { G, env } = launchGame(70);
+    for (let i = 0; i < G.cells.length; i++) if (G.solution[i] === 1) G.setCell(i, 1);
+    G.reportWin();
+    const winText = env.byId.get("win-text");
+    check("U59a the banner counts down to the next work", /new work in 2/.test(winText.textContent));
+    env.timers[env.timers.length - 1].fn(); // the one-second countdown tick
+    check("U59b the countdown reaches one", /new work in 1/.test(winText.textContent));
+    env.byId.get("win-banner").click();
+    check("U59c clicking holds the work", winText.textContent.includes("The work rests") && G.gameState.currentPuzzle.solved === true);
+    env.timers[env.timers.length - 1].fn(); // the held tick must not advance
+    check("U59d a held board ignores the countdown", winText.textContent.includes("The work rests") && G.gameState.currentPuzzle.solved === true);
+    G.startPuzzle();
+    check("U59e the held work continues on demand", G.gameState.currentPuzzle.solved === false && !env.doc.getElementById("win-banner").classList.contains("show"));
+  }
+  // U61: every 25th completed work gets a beat.
+  {
+    const { G, env } = launchGame(71);
+    const sub = () => env.doc.querySelector("#win-banner .win-sub").textContent;
+    G.gameState.works = 24;
+    for (let i = 0; i < G.cells.length; i++) if (G.solution[i] === 1) G.setCell(i, 1);
+    G.reportWin();
+    check("U61a the 25th work bears fruit", sub().includes("the work bears fruit (25 works)"));
+    G.startPuzzle();
+    for (let i = 0; i < G.cells.length; i++) if (G.solution[i] === 1) G.setCell(i, 1);
+    G.reportWin();
+    check("U61b non-milestone boards stay quiet", !sub().includes("bears fruit"));
+  }
 }
 
 // ---------- Pacing simulation ----------

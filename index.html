@@ -413,7 +413,7 @@
         <div class="board-wrap">
           <svg id="board" preserveAspectRatio="xMidYMin meet"></svg>
           <div id="win-banner">
-            <span class="win-text">Transmutation Complete</span>
+            <span id="win-text" class="win-text">Transmutation Complete</span>
             <span class="win-sub">New work begins&hellip;</span>
           </div>
           <div id="opus-banner">
@@ -706,10 +706,11 @@
   let cells = [], idxOf = new Map(), block = [], solution = [], clues = [];
   let state = [], poly = [], txt = [], mirrorMarkers = [], mirrorGovernors = [], clueBadges = [];
   let nextPuzzleTimer = null;
+  let winCountdown = 0, winHold = false;
   let hintTimer = null;
   let undoStack = [];
   let highlightedScope = [], hoveredCell = -1, dragging = false, dragApply = null, tool = "green", puzzleMoves = 0, puzzleSeconds = 0, totalSeconds = 0, offlineMessage = null;
-  let R, W, H, ox, oy, boardEl, boardWrapEl, winBannerEl, winSubEl, opusBannerEl, recipeEl, resListEl, upgradeListEl, techListEl, transmuteListEl, statusEl, guideEl, worksEl, clueProgressEl, moveCountEl, solveTimeEl, newBoardBtn;
+  let R, W, H, ox, oy, boardEl, boardWrapEl, winBannerEl, winSubEl, winTextEl, opusBannerEl, recipeEl, resListEl, upgradeListEl, techListEl, transmuteListEl, statusEl, guideEl, worksEl, clueProgressEl, moveCountEl, solveTimeEl, newBoardBtn;
 
   boardEl = document.getElementById("board");
   boardWrapEl = document.querySelector(".board-wrap");
@@ -717,6 +718,15 @@
   opusBannerEl = document.getElementById("opus-banner");
   resListEl = document.getElementById("resource-list");
   winSubEl = document.querySelector("#win-banner .win-sub");
+  winTextEl = document.getElementById("win-text");
+  winBannerEl.onclick = () => {
+    if (gameState.currentPuzzle.solved && !winHold) {
+      winHold = true;
+      if (nextPuzzleTimer) { clearTimeout(nextPuzzleTimer); nextPuzzleTimer = null; }
+      winTextEl.textContent = "The work rests — forge a new puzzle when ready.";
+      setStatus("The work rests — forge a new puzzle when ready.", "info");
+    }
+  };
   recipeEl = document.getElementById("recipe");
   upgradeListEl = document.getElementById("upgrades-list");
   techListEl = document.getElementById("tech-tree-list");
@@ -1253,7 +1263,8 @@
       addInventory(id, per);
       outputs.push({ id, text: `${per} ${gameState.elements[id].sym} ${gameState.elements[id].name.toLowerCase()}` });
     }
-    winSubEl.innerHTML = `${outputs.map(o => `${iconHtml(o.id, 14)}${o.text}`).join("  ")}  ·  ${greens} prima fed · ${puzzleMoves} moves · ${fmtTime(puzzleSeconds)}${isNewBest ? " · new best!" : ""}`;
+    const worksClause = gameState.works % 25 === 0 ? ` · the work bears fruit (${gameState.works} works)` : "";
+    winSubEl.innerHTML = `${outputs.map(o => `${iconHtml(o.id, 14)}${o.text}`).join("  ")}  ·  ${greens} prima fed · ${puzzleMoves} moves · ${fmtTime(puzzleSeconds)}${isNewBest ? " · new best!" : ""}${worksClause}`;
     setStatus(`Transmutation complete: +${outputs.map(o => o.text).join(" +")}`, "win");
 
     updateUI();
@@ -1269,10 +1280,19 @@
 
   function scheduleNextPuzzle() {
     if (nextPuzzleTimer) clearTimeout(nextPuzzleTimer);
-    nextPuzzleTimer = setTimeout(() => {
-      nextPuzzleTimer = null;
-      startPuzzle();
-    }, 1600);
+    winHold = false;
+    winCountdown = 2;
+    winTextEl.textContent = `Transmutation Complete — new work in ${winCountdown}…`;
+    nextPuzzleTimer = setTimeout(tickCountdown, 1000);
+  }
+
+  function tickCountdown() {
+    nextPuzzleTimer = null;
+    if (!gameState.currentPuzzle.solved || winHold) return;
+    winCountdown--;
+    if (winCountdown <= 0) { startPuzzle(); return; }
+    winTextEl.textContent = `Transmutation Complete — new work in ${winCountdown}…`;
+    nextPuzzleTimer = setTimeout(tickCountdown, 1000);
   }
 
   // ---------- Game Operations ----------
