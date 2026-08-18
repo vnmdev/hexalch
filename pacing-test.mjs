@@ -154,6 +154,7 @@ const HOOK = `
   get solution() { return solution; },
   get state() { return state; },
   get clues() { return clues; },
+  get puzzleMoves() { return puzzleMoves; },
   setCell, startPuzzle, reportWin, tick, updateUI, updateDynamicUI,
   get amountEls() { return amountEls; },
   get buyButtons() { return buyButtons; },
@@ -709,6 +710,24 @@ function runUnitChecks() {
       check("U33d last halo tile outlined", polyAt(found.t).classList.contains("forced"));
       check("U33e badge shows the last needed green", badgeAt(found.i).dataset.remaining === "1");
     }
+  }
+  // U34: the move count is live on the chip row, survives a save round
+  // trip, and resets on a new puzzle.
+  {
+    const store = new Map();
+    const { G, env } = launchGame(41, store);
+    const chip = env.byId.get("move-count");
+    check("U34a fresh board shows 0 moves", G.puzzleMoves === 0 && chip.textContent === "0 moves");
+    const greens = [];
+    for (let i = 0; i < G.cells.length; i++) if (G.solution[i] === 1) greens.push(i);
+    G.setCell(greens[0], 1); G.setCell(greens[1], 1);
+    check("U34b paints count live", G.puzzleMoves === 2 && chip.textContent === "2 moves");
+    G.saveProgress();
+    const b = launchGame(42, store);
+    const bChip = b.env.byId.get("move-count");
+    check("U34c move count survives a refresh", b.G.puzzleMoves === 2 && bChip.textContent === "2 moves");
+    b.G.startPuzzle();
+    check("U34d new puzzle resets the count", b.G.puzzleMoves === 0 && bChip.textContent === "0 moves");
   }
 }
 

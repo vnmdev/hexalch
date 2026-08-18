@@ -96,6 +96,7 @@ try {
     redDisabled: document.getElementById("tRed").disabled,
     guideLines: document.querySelectorAll("#clue-guide .clue-line").length,
     clueProgress: document.getElementById("clue-progress").textContent,
+    moveCount: document.getElementById("move-count").textContent,
     status: document.getElementById("status").textContent,
     favicon: (document.querySelector('link[rel="icon"]') || { href: "" }).href
   })`);
@@ -105,6 +106,7 @@ try {
   assert(initial.speedMode && initial.speedChecked && initial.redDisabled, "Fast Mode is not the synchronized default");
   assert(initial.guideLines === 1, `fresh game guide should list one clue form, got ${initial.guideLines}`);
   assert(/^\d+\/\d+$/.test(initial.clueProgress), `clue progress chip malformed: ${JSON.stringify(initial.clueProgress)}`);
+  assert(/^\d+ moves$/.test(initial.moveCount), `move-count chip malformed: ${JSON.stringify(initial.moveCount)}`);
   assert(initial.status.length > 0, "status line is empty on a fresh board");
   assert(initial.favicon.startsWith("data:image/svg+xml,"), "favicon is not an inline SVG data URI");
 

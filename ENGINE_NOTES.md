@@ -188,12 +188,13 @@ transmutation engine**. This section is the reference for that layer.
   goal ("match every clue's number, then Check") so a first-time player
   is never left without instructions; `setCell()` counts real state
   changes into `puzzleMoves` (reset per puzzle, same-value repaints
-  are skipped), and the win banner reports it — "… prima fed · N moves"
-  (U27).
+  are skipped), shown live next to the clue chip ("N moves") and in the
+  win banner ("… prima fed · N moves") (U27). The count is serialized
+  with the in-progress board, so a refresh resumes the same count (U34).
 - **Save slot `greatwork_v4`**; `loadProgress` merges every pool with
   defaults and, when the save carries a valid in-progress board,
-  **restores it exactly** — solution, clues, paint and inscription
-  state are serialized as plain data and `restorePuzzle` rebuilds the
+  **restores it exactly** — solution, clues, paint, inscription and
+  move count as plain data, and `restorePuzzle` rebuilds the
   board without regenerating. A `pagehide` save on tab close makes a
   refresh lossless; older saves without a board simply start fresh
   (U32).
@@ -221,7 +222,7 @@ transmutation engine**. This section is the reference for that layer.
   unlocked forms (U24), the **affordance flash** + **works counter**
   (U25, and works restored on load, U13f), the **clue-progress chip**
   reading `0/N` fresh and `N/N` solved (U26), the **goal hint + move
-  count** on the win banner (U27), the **Reveal cost** — states the
+  count** — live chip and win banner (U27, U34), the **Reveal cost** —
   forfeited yield and counts no work (U28), and the **location
   announcement** firing once per real change (U30). The DOM stub's
   `textContent` is DOM-faithful: an `innerHTML` set makes `textContent`
