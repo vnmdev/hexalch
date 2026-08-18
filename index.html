@@ -1767,7 +1767,7 @@
   document.getElementById("solve-board").onclick = () => {
     for(let i=0;i<cells.length;i++) state[i]= solution[i]===1 ? 1 : (gameState.settings.speedMode ? 0 : 2);
     gameState.currentPuzzle.solved = true; renderCell();
-    setStatus("Solution revealed.", "info");
+    setStatus("Solution revealed — no yield for this board. Forge a new puzzle to continue.", "info");
   };
   document.getElementById("opus-continue").onclick = () => {
     opusBannerEl.classList.remove("show");

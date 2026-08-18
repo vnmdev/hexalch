@@ -608,6 +608,14 @@ function runUnitChecks() {
     const sub = env.doc.querySelector("#win-banner .win-sub");
     check("U27b win banner shows moves used", moves > 0 && sub.textContent.includes(`${moves} moves`));
   }
+  // U28: Reveal states its cost and forfeits the yield (no works, no win).
+  {
+    const { G, env } = launchGame(34);
+    const before = G.gameState.works;
+    env.doc.getElementById("solve-board").click();
+    check("U28a reveal forfeits the yield", G.gameState.currentPuzzle.solved && G.gameState.works === before);
+    check("U28b reveal states the cost", env.doc.getElementById("status").textContent.includes("no yield"));
+  }
 }
 
 // ---------- Pacing simulation ----------

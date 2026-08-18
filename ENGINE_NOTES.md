@@ -103,7 +103,9 @@ transmutation engine**. This section is the reference for that layer.
 - Changing a fed cell back to empty, or **Reset**, **refunds** each fed
   cell 1:1.
 - **Reveal** is a free peek: it sets `solved` without feeding and
-  grants **nothing**.
+  grants **nothing** — the status line now states the forfeited yield
+  ("no yield for this board. Forge a new puzzle to continue"), so the
+  cost is visible, not just felt (U28).
 
 ### A solve is a transmutation (`reportWin`)
 - On a completed pattern, the crucible releases the **elements its
@@ -208,7 +210,8 @@ transmutation engine**. This section is the reference for that layer.
   unlocked forms (U24), the **affordance flash** + **works counter**
   (U25, and works restored on load, U13f), the **clue-progress chip**
   reading `0/N` fresh and `N/N` solved (U26), and the **goal hint +
-  move count** on the win banner (U27). The DOM stub's `textContent`
+  move count** on the win banner (U27), and the **Reveal cost** — states
+  the forfeited yield and counts no work (U28). The DOM stub's `textContent`
   is DOM-faithful: an `innerHTML` set makes `textContent` return the
   tag-stripped text (the win banner renders output icons via `innerHTML`).
 - **Simulation**: a greedy player solves on a per-radius interval that
