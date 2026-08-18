@@ -820,6 +820,20 @@ function runUnitChecks() {
     b2.G.startPuzzle();
     check("U39b leaving a solved board does not refund twice", b2.G.gameState.resources.prima_materia.amount === paid);
   }
+  // U40: the clue guide shows how many of each form sit on the current
+  // board, and follows a new puzzle.
+  {
+    const { G, env } = launchGame(51);
+    const guide = env.doc.getElementById("clue-guide");
+    const lineFor = prefix => guide.children.find(l => l.children[1].textContent.startsWith(prefix));
+    const countOf = kind => G.clues.filter(c => c && c.kind === kind).length;
+    G.updateUI();
+    const sur = countOf(G.CLUE.SURROUND);
+    check("U40a fresh board shows its surround count", sur > 0 && lineFor("Surround").children[1].textContent.includes(`${sur} on this board`));
+    G.startPuzzle();
+    const sur2 = countOf(G.CLUE.SURROUND);
+    check("U40b counts track a new board", lineFor("Surround").children[1].textContent.includes(`${sur2} on this board`));
+  }
 }
 
 // ---------- Pacing simulation ----------
