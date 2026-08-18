@@ -156,6 +156,8 @@ const HOOK = `
   get clues() { return clues; },
   get puzzleMoves() { return puzzleMoves; },
   get puzzleSeconds() { return puzzleSeconds; },
+  get totalSeconds() { return totalSeconds; },
+  celebrateMagnumOpus,
   setCell, startPuzzle, reportWin, tick, updateUI, updateDynamicUI,
   get amountEls() { return amountEls; },
   get buyButtons() { return buyButtons; },
@@ -746,6 +748,21 @@ function runUnitChecks() {
     check("U35d win banner reports the solve time", /2m 52s/.test(banner.textContent));
     G.tick(60);
     check("U35e timer freezes after the solve", G.puzzleSeconds === 172);
+  }
+  // U36: the Magnum Opus banner reports the span of the work — elapsed
+  // play time and completed boards.
+  {
+    const { G, env } = launchGame(44);
+    const gs = G.gameState;
+    gs.works = 3;
+    for (const pool of [gs.resources, gs.metals, gs.elements]) {
+      for (const entry of Object.values(pool)) entry.amount = 100000;
+    }
+    G.tick(125); G.updateDynamicUI();
+    check("U36a session clock counts", G.totalSeconds === 125);
+    for (const t of G.TECHS) G.buyTech(t.id);
+    const sub = env.byId.get("opus-sub");
+    check("U36b opus reports time and works", sub.textContent.includes("2m 5s") && sub.textContent.includes("3 boards"));
   }
 }
 
