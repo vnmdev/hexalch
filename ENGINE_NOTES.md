@@ -101,7 +101,8 @@ transmutation engine**. This section is the reference for that layer.
 - Painting a cell **green feeds it 1 prima**. No prima ⇒ the paint is
   refused (`setCell` returns `false`).
 - Changing a fed cell back to empty, or **Reset**, **refunds** each fed
-  cell 1:1.
+  cell 1:1 — the status line reports the refunded amount
+  ("N prima refunded"), so the refund is visible, not silent.
 - **Reveal** is a free peek: it sets `solved` without feeding and
   grants **nothing** — the status line now states the forfeited yield
   ("no yield for this board. Forge a new puzzle to continue"), so the
@@ -191,6 +192,11 @@ transmutation engine**. This section is the reference for that layer.
   are skipped), shown live next to the clue chip ("N moves") and in the
   win banner ("… prima fed · N moves") (U27). The count is serialized
   with the in-progress board, so a refresh resumes the same count (U34).
+- **Solve timer** (`#solve-time`, chip row): counts active board
+  seconds — `puzzleSeconds` is advanced by `tick` while the board is
+  unsolved and freezes on win — shown live as "N m Ns" beside the clue
+  and move chips and reported on the win banner, so the time
+  inscription buys back is the time the player can see (U35).
 - **Save slot `greatwork_v4`**; `loadProgress` merges every pool with
   defaults and, when the save carries a valid in-progress board,
   **restores it exactly** — solution, clues, paint, inscription and
@@ -222,8 +228,9 @@ transmutation engine**. This section is the reference for that layer.
   unlocked forms (U24), the **affordance flash** + **works counter**
   (U25, and works restored on load, U13f), the **clue-progress chip**
   reading `0/N` fresh and `N/N` solved (U26), the **goal hint + move
-  count** — live chip and win banner (U27, U34), the **Reveal cost** —
-  forfeited yield and counts no work (U28), and the **location
+  count** — live chip and win banner (U27, U34), the **solve timer** —
+  live count, frozen on solve, reported on the banner (U35), the
+  **Reveal cost** — forfeited yield and counts no work (U28), and the **location
   announcement** firing once per real change (U30). The DOM stub's
   `textContent` is DOM-faithful: an `innerHTML` set makes `textContent`
   return the tag-stripped text (the win banner renders output icons via
