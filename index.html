@@ -680,7 +680,7 @@
   let state = [], poly = [], txt = [], mirrorMarkers = [], mirrorGovernors = [], clueBadges = [];
   let nextPuzzleTimer = null;
   let highlightedScope = [], hoveredCell = -1, dragging = false, dragApply = null, tool = "green", puzzleMoves = 0, puzzleSeconds = 0, totalSeconds = 0, offlineMessage = null;
-  let R, W, H, ox, oy, boardEl, boardWrapEl, winBannerEl, winSubEl, opusBannerEl, recipeEl, resListEl, upgradeListEl, techListEl, transmuteListEl, statusEl, guideEl, worksEl, clueProgressEl, moveCountEl, solveTimeEl;
+  let R, W, H, ox, oy, boardEl, boardWrapEl, winBannerEl, winSubEl, opusBannerEl, recipeEl, resListEl, upgradeListEl, techListEl, transmuteListEl, statusEl, guideEl, worksEl, clueProgressEl, moveCountEl, solveTimeEl, newBoardBtn;
 
   boardEl = document.getElementById("board");
   boardWrapEl = document.querySelector(".board-wrap");
@@ -697,6 +697,7 @@
   worksEl = document.getElementById("works-count");
   clueProgressEl = document.getElementById("clue-progress");
   moveCountEl = document.getElementById("move-count");
+  newBoardBtn = document.getElementById("new-board");
   solveTimeEl = document.getElementById("solve-time");
 
   function renderMoves() { moveCountEl.textContent = puzzleMoves + " moves"; }
@@ -1459,6 +1460,15 @@
       if (afford && b.el.disabled) b.el.classList.add("just-affordable");
       else if (!afford && !b.el.disabled) b.el.classList.remove("just-affordable");
       b.el.disabled = !afford;
+    }
+    // The New Puzzle tooltip states exactly what a click would refund.
+    if (gameState.currentPuzzle.solved) {
+      newBoardBtn.title = "Forge a fresh board";
+    } else {
+      const fed = state.filter(v => v === 1).length;
+      newBoardBtn.title = fed > 0
+        ? `Forge a fresh board — ${fed} prima refunded`
+        : "Forge a fresh board — paint on an unsolved board is refunded";
     }
     renderTime();
   }
