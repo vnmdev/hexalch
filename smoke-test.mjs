@@ -95,7 +95,8 @@ try {
     speedChecked: document.getElementById("speed-mode").checked,
     redDisabled: document.getElementById("tRed").disabled,
     guideLines: document.querySelectorAll("#clue-guide .clue-line").length,
-    clueProgress: document.getElementById("clue-progress").textContent
+    clueProgress: document.getElementById("clue-progress").textContent,
+    status: document.getElementById("status").textContent
   })`);
   assert(initial.ready === "complete", "page did not finish loading");
   assert(initial.polygons === 37, `radius-three board should have 37 cells, got ${initial.polygons}`);
@@ -103,6 +104,7 @@ try {
   assert(initial.speedMode && initial.speedChecked && initial.redDisabled, "Fast Mode is not the synchronized default");
   assert(initial.guideLines === 1, `fresh game guide should list one clue form, got ${initial.guideLines}`);
   assert(/^\d+\/\d+$/.test(initial.clueProgress), `clue progress chip malformed: ${JSON.stringify(initial.clueProgress)}`);
+  assert(initial.status.length > 0, "status line is empty on a fresh board");
 
   const icons = await evaluate(`({
     ledger: document.querySelectorAll("#resource-list .icon svg").length,

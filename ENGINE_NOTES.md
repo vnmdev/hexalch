@@ -171,6 +171,12 @@ transmutation engine**. This section is the reference for that layer.
 - **Clue-progress chip** (`#clue-progress`, under the board): a live
   `satisfied/total` count of the clue rows, updated in `updateFades()`
   on every paint so the solver can see how close the board is (U26).
+- **Goal hint + move count**: a fresh board sets the status line to the
+  goal ("match every clue's number, then Check") so a first-time player
+  is never left without instructions; `setCell()` counts real state
+  changes into `puzzleMoves` (reset per puzzle, same-value repaints
+  are skipped), and the win banner reports it — "… prima fed · N moves"
+  (U27).
 - Save slot `greatwork_v4` (bumped when the economy shape changed);
   `loadProgress` merges every pool with defaults and starts a fresh
   puzzle at the saved radius + inscription level.
@@ -195,8 +201,9 @@ transmutation engine**. This section is the reference for that layer.
   **in-place refresh** (amounts/buttons update without a rebuild; node
   identity preserved across a tick, U23), the **clue guide** tracking
   unlocked forms (U24), the **affordance flash** + **works counter**
-  (U25, and works restored on load, U13f), and the **clue-progress chip**
-  reading `0/N` fresh and `N/N` solved (U26). The DOM stub's `textContent`
+  (U25, and works restored on load, U13f), the **clue-progress chip**
+  reading `0/N` fresh and `N/N` solved (U26), and the **goal hint +
+  move count** on the win banner (U27). The DOM stub's `textContent`
   is DOM-faithful: an `innerHTML` set makes `textContent` return the
   tag-stripped text (the win banner renders output icons via `innerHTML`).
 - **Simulation**: a greedy player solves on a per-radius interval that

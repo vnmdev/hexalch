@@ -674,7 +674,7 @@
   let cells = [], idxOf = new Map(), block = [], solution = [], clues = [];
   let state = [], poly = [], txt = [], mirrorMarkers = [], mirrorGovernors = [], clueBadges = [];
   let nextPuzzleTimer = null;
-  let highlightedScope = [], hoveredCell = -1, dragging = false, dragApply = null, tool = "green";
+  let highlightedScope = [], hoveredCell = -1, dragging = false, dragApply = null, tool = "green", puzzleMoves = 0;
   let R, W, H, ox, oy, boardEl, boardWrapEl, winBannerEl, winSubEl, opusBannerEl, recipeEl, resListEl, upgradeListEl, techListEl, transmuteListEl, statusEl, guideEl, worksEl, clueProgressEl;
 
   boardEl = document.getElementById("board");
@@ -1074,9 +1074,12 @@
     } else if (state[i] === 1 && value !== 1) {
       gameState.resources.prima_materia.amount += 1;
     }
-    state[i] = value;
-    paintCell(i);
-    updateFades();
+    if (state[i] !== value) {
+      puzzleMoves++;
+      state[i] = value;
+      paintCell(i);
+      updateFades();
+    }
     renderResources();
     return true;
   }
@@ -1150,7 +1153,7 @@
       addInventory(id, per);
       outputs.push({ id, text: `${per} ${gameState.elements[id].sym} ${gameState.elements[id].name.toLowerCase()}` });
     }
-    winSubEl.innerHTML = `${outputs.map(o => `${iconHtml(o.id, 14)}${o.text}`).join("  ")}  ·  ${greens} prima fed`;
+    winSubEl.innerHTML = `${outputs.map(o => `${iconHtml(o.id, 14)}${o.text}`).join("  ")}  ·  ${greens} prima fed · ${puzzleMoves} moves`;
     setStatus(`Transmutation complete: +${outputs.map(o => o.text).join(" +")}`, "win");
 
     updateUI();
@@ -1245,6 +1248,7 @@
 
     generate(p.radius, p.density, p.attempts, kinds, insLevel * INSCRIPTION.step);
     state = cells.map(() => 0);
+    puzzleMoves = 0;
     buildBoard();
 
     const greens = solution.filter(v => v === 1).length;
@@ -1253,7 +1257,7 @@
     const symIcons = ELEMENTS_BY_RADIUS[p.radius].map(id => iconHtml(id, 13, gameState.elements[id].name)).join(" ");
     recipeEl.innerHTML = `feeds ${greens} prima  →  ${per} × ${symIcons}${etch ? `  (etching +${etch})` : ""}`;
 
-    setStatus("New puzzle forged.", "info");
+    setStatus("New puzzle forged — match every clue's number, then Check.", "info");
     updateUI();
   }
 
