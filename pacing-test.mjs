@@ -589,6 +589,15 @@ function runUnitChecks() {
     G.reportWin();
     check("U25f winning increments works", gs.works === 8 && env.doc.getElementById("works-count").textContent === "Works completed: 8");
   }
+  // U26: the clue-progress chip counts satisfied clues live.
+  {
+    const { G, env } = launchGame(32);
+    const chip = env.doc.getElementById("clue-progress");
+    const total = G.clues.filter(Boolean).length;
+    check("U26a chip starts at 0/N", total > 0 && chip.textContent === `0/${total}`);
+    for (let i = 0; i < G.cells.length; i++) if (G.solution[i] === 1) G.setCell(i, 1);
+    check("U26b solved board reads N/N", chip.textContent === `${total}/${total}`);
+  }
 }
 
 // ---------- Pacing simulation ----------

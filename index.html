@@ -324,6 +324,7 @@
     .clue-badge.need { fill: var(--accent); }
     .clue-badge.ok { fill: #6f9e6a; }
     .clue-badge.over { fill: var(--red); }
+    .clue-progress { font-size: 13px; color: var(--accent); font-family: 'Courier New', Courier, monospace; letter-spacing: 1px; }
     polygon.forced {
       stroke: var(--accent);
       stroke-width: 2;
@@ -400,6 +401,9 @@
             <span class="opus-sub">The Philosopher&rsquo;s Stone is forged. The work endures.</span>
             <button id="opus-continue">Continue the Work</button>
           </div>
+        </div>
+        <div class="controls" style="margin-top:8px;">
+          <span id="clue-progress" class="clue-progress" title="clues satisfied / total"></span>
         </div>
         <div class="controls">
           <button id="new-board">New Puzzle</button>
@@ -671,7 +675,7 @@
   let state = [], poly = [], txt = [], mirrorMarkers = [], mirrorGovernors = [], clueBadges = [];
   let nextPuzzleTimer = null;
   let highlightedScope = [], hoveredCell = -1, dragging = false, dragApply = null, tool = "green";
-  let R, W, H, ox, oy, boardEl, boardWrapEl, winBannerEl, winSubEl, opusBannerEl, recipeEl, resListEl, upgradeListEl, techListEl, transmuteListEl, statusEl, guideEl, worksEl;
+  let R, W, H, ox, oy, boardEl, boardWrapEl, winBannerEl, winSubEl, opusBannerEl, recipeEl, resListEl, upgradeListEl, techListEl, transmuteListEl, statusEl, guideEl, worksEl, clueProgressEl;
 
   boardEl = document.getElementById("board");
   boardWrapEl = document.querySelector(".board-wrap");
@@ -686,6 +690,7 @@
   statusEl = document.getElementById("status");
   guideEl = document.getElementById("clue-guide");
   worksEl = document.getElementById("works-count");
+  clueProgressEl = document.getElementById("clue-progress");
 
   // ---------- Core Engine ----------
 
@@ -969,17 +974,21 @@
     // clue is settled, so its still-uncolored cells are known non-green.
     // They keep state 0 (they were never painted) and fade via CSS only.
     const red = new Array(cells.length).fill(false);
+    let sat = 0, total = 0;
     for (let i = 0; i < cells.length; i++) {
       const clue = clues[i];
       if (!clue) continue;
+      total++;
       const g = greenCount(clue);
       const done = g === clue.count && (clue.kind !== CLUE.MIRROR || mirrorResolved(clue));
+      if (done) sat++;
       txt[i].classList.toggle("done", done);
       txt[i].classList.toggle("over", g > clue.count);
       if (gameState.settings.speedMode && g === clue.count) {
         for (const j of clue.cells) if (state[j] !== 1) red[j] = true;
       }
     }
+    clueProgressEl.textContent = `${sat}/${total}`;
     if (gameState.settings.speedMode) {
       for (let i = 0; i < cells.length; i++) poly[i].classList.toggle("empty", red[i] && state[i] !== 1);
     }
