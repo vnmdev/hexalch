@@ -860,6 +860,26 @@ function runUnitChecks() {
     G.updateDynamicUI();
     check("U42c cleared board drops the count", btn.title.includes("unsolved board is refunded"));
   }
+  // U43: the offline announcement states how long the generators ran
+  // (and the 8 h cap holds for longer absences).
+  {
+    const away = seconds => {
+      const store = new Map();
+      const a = launchGame(54, store);
+      a.G.gameState.generators.extractor = 1;
+      a.G.saveProgress();
+      const key = "greatwork_v4";
+      const raw = JSON.parse(a.env.ls.getItem(key));
+      raw.savedAt = Date.now() - seconds * 1000;
+      a.env.ls.setItem(key, JSON.stringify(raw));
+      return launchGame(55, store);
+    };
+    const b = away(8100); // 2 h 15 m
+    check("U43a announcement states the absence", b.env.doc.getElementById("status").textContent.includes("2 h 15 m"));
+    const c = away(12 * 3600); // capped at 8 h
+    const status = c.env.doc.getElementById("status").textContent;
+    check("U43b cap is visible in the announcement", status.includes("8 h 0 m") && !status.includes("9 h"));
+  }
 }
 
 // ---------- Pacing simulation ----------

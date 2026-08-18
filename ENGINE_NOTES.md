@@ -99,8 +99,9 @@ transmutation engine**. This section is the reference for that layer.
 - **Offline progress**: the save carries `savedAt`; on load, when the
   gap is at least 60 s (a refresh is not an absence), every generator
   produces for the elapsed time (capped at 8 h) and the status line
-  announces the idle yield on return ("While you were away, the
-  generators kept working: +N …") (U37).
+  announces the idle yield on return — with the credited absence
+  duration, so the yield's size makes sense ("While you were away
+  (2 h 15 m), the generators kept working: +N …") (U37, U43).
 
 ### The feed economy (`setCell`)
 - Painting a cell **green feeds it 1 prima**. No prima ⇒ the paint is
@@ -260,7 +261,8 @@ transmutation engine**. This section is the reference for that layer.
   the board (U40), **locked-tech requirements** — "Requires X" on
   rows whose prereqs are unforged (U41), and the **live refund
   tooltip** — New Puzzle states the exact refund before the click
-  (U42). The DOM stub's
+  (U42), and the **offline duration** — the announcement states how long
+  the generators ran, cap included (U43). The DOM stub's
   return the tag-stripped text (the win banner renders output icons via
   `innerHTML`).
 - **Simulation**: a greedy player solves on a per-radius interval that
