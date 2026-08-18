@@ -928,6 +928,18 @@ function runUnitChecks() {
     const sub = env.byId.get("opus-sub").textContent;
     check("U51a opus banner reports the best time", sub.includes("boards completed · best 2m 52s"));
   }
+  // U49: a first board greets a new player; the next does not; the flag
+  // persists in the save.
+  {
+    const { G, env } = launchGame(59);
+    const status = env.doc.getElementById("status");
+    check("U49a first board shows the intro line", status.textContent.includes("Paint a tile green"));
+    G.startPuzzle();
+    check("U49b next board reverts to the goal hint", status.textContent === "New puzzle forged — match every clue's number, then Check.");
+    env.win.fire("keydown", { key: "f" }); // toggles fast mode, which saves
+    const raw = JSON.parse(env.ls.getItem("greatwork_v4"));
+    check("U49c the tutored flag persists in the save", raw.tutored === true);
+  }
 }
 
 // ---------- Pacing simulation ----------

@@ -684,7 +684,8 @@
     currentPuzzle: { radius: 3, density: 0.4, attempts: 5, solved: false },
     currentLocationId: "leaden_chamber",
     works: 0,
-    bestSeconds: 0
+    bestSeconds: 0,
+    tutored: false
   };
 
   let cells = [], idxOf = new Map(), block = [], solution = [], clues = [];
@@ -1302,7 +1303,12 @@
     const symIcons = ELEMENTS_BY_RADIUS[p.radius].map(id => iconHtml(id, 13, gameState.elements[id].name)).join(" ");
     recipeEl.innerHTML = `feeds ${greens} prima  →  ${per} × ${symIcons}${etch ? `  (etching +${etch})` : ""}`;
 
-    setStatus("New puzzle forged — match every clue's number, then Check.", "info");
+    if (!gameState.tutored) {
+      gameState.tutored = true;
+      setStatus("Paint a tile green to feed it. Match every clue's number, then Check. Keys: 1/2/3 tools · N new · C check · X reset · Z undo · F fast mode.", "info");
+    } else {
+      setStatus("New puzzle forged — match every clue's number, then Check.", "info");
+    }
     updateUI();
   }
 
@@ -1853,6 +1859,7 @@
         currentLocationId: d.currentLocationId || defaults.currentLocationId,
         works: Math.max(0, Math.floor(Number(d.works) || 0)),
         bestSeconds: Math.max(0, Math.floor(Number(d.bestSeconds) || 0)),
+        tutored: !!d.tutored,
         wip
       };
       applyOfflineProgress(d.savedAt);
