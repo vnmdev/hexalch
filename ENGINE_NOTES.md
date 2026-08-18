@@ -109,10 +109,11 @@ transmutation engine**. This section is the reference for that layer.
   cell 1:1 — the status line reports the refunded amount
   ("N prima refunded"), so the refund is visible, not silent.
 - **New Puzzle** abandons the board the same way: paint on an
-  **unsolved** board is refunded 1:1 when a fresh one is forged (the
-  button's tooltip states it). A **solved** board never refunds — its
-  paint already converted into yield in `reportWin`, so a refund would
-  pay twice (U39).
+  **unsolved** board is refunded 1:1 when a fresh one is forged (U39).
+  The button's tooltip states the exact refund live — "Forge a fresh
+  board — N prima refunded", refreshed by `updateDynamicUI` each second
+  (U42). A **solved** board never refunds: its paint already converted
+  into yield in `reportWin`, so a refund would pay twice.
 - **Reveal** is a free peek: it sets `solved` without feeding and
   grants **nothing** — the status line now states the forfeited yield
   ("no yield for this board. Forge a new puzzle to continue"), so the
@@ -256,8 +257,10 @@ transmutation engine**. This section is the reference for that layer.
   shown in the works row, flagged on the banner (U38), and **abandon
   refund** — New Puzzle refunds unsolved paint, never solved (U39), and
   the **clue guide counts** — each row shows how many of its form are on
-  the board (U40), and **locked-tech requirements** — "Requires X" on
-  rows whose prereqs are unforged (U41). The DOM stub's
+  the board (U40), **locked-tech requirements** — "Requires X" on
+  rows whose prereqs are unforged (U41), and the **live refund
+  tooltip** — New Puzzle states the exact refund before the click
+  (U42). The DOM stub's
   return the tag-stripped text (the win banner renders output icons via
   `innerHTML`).
 - **Simulation**: a greedy player solves on a per-radius interval that

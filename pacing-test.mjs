@@ -846,6 +846,20 @@ function runUnitChecks() {
     G.buyTech("nigredo");
     check("U41c note clears when the prereq is forged", !row("Albedo").textContent.includes("Requires"));
   }
+  // U42: the New Puzzle tooltip states the exact refund before the click.
+  {
+    const { G, env } = launchGame(53);
+    const btn = env.byId.get("new-board");
+    G.updateDynamicUI();
+    check("U42a clean board has the generic tooltip", btn.title.includes("unsolved board is refunded"));
+    const greens = [];
+    for (let i = 0; i < G.cells.length; i++) if (G.solution[i] === 1) greens.push(i);
+    G.setCell(greens[0], 1); G.setCell(greens[1], 1); G.updateDynamicUI();
+    check("U42b painted board states the exact refund", btn.title === "Forge a fresh board — 2 prima refunded");
+    env.doc.getElementById("reset-board").click();
+    G.updateDynamicUI();
+    check("U42c cleared board drops the count", btn.title.includes("unsolved board is refunded"));
+  }
 }
 
 // ---------- Pacing simulation ----------
