@@ -327,6 +327,7 @@
     .clue-badge.ok { fill: #6f9e6a; }
     .clue-badge.over { fill: var(--red); }
     .clue-progress { font-size: 13px; color: var(--accent); font-family: 'Courier New', Courier, monospace; letter-spacing: 1px; }
+    polygon.guide-hint { stroke: var(--green); stroke-width: 2.5; }
     polygon.forced {
       stroke: var(--accent);
       stroke-width: 2;
@@ -1539,6 +1540,8 @@
       const info = CLUE_INFO[kind];
       const line = document.createElement("div");
       line.className = "clue-line";
+      line.dataset.kind = kind;
+      line.title = "Hover to outline these clues on the board";
       const glyph = document.createElement("span");
       glyph.className = "clue-glyph";
       glyph.textContent = info.glyph;
@@ -1547,7 +1550,18 @@
       text.textContent = `${info.name}: ${info.blurb}` + (onBoard > 0 ? ` — ${onBoard} on this board` : "");
       line.appendChild(glyph);
       line.appendChild(text);
+      line.addEventListener("mouseenter", () => highlightGuideKind(kind, true));
+      line.addEventListener("mouseleave", () => highlightGuideKind(kind, false));
       guideEl.appendChild(line);
+    }
+  }
+
+  // While a guide row is hovered, each clue of that form outlines its
+  // anchor cell, so the scope stays findable on a full board.
+  function highlightGuideKind(kind, on) {
+    for (let i = 0; i < cells.length; i++) {
+      const clue = clues[i];
+      if (clue && clue.kind === kind) poly[i].classList.toggle("guide-hint", on);
     }
   }
 

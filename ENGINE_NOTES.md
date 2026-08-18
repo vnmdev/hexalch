@@ -200,6 +200,9 @@ transmutation engine**. This section is the reference for that layer.
   states how many clues of that form sit on the current board ("— N on
   this board"), re-rendered whenever the board or inscription changes
   (U40).
+  Hovering a row outlines the anchor cell of every clue of that form
+  (green stroke), so a form's scope stays findable on a full board
+  (U50).
 - **Affordance flash**: when a buy button flips unaffordable→affordable
   between two ticks, `updateDynamicUI()` adds the `just-affordable` class
   (one-shot gold box-shadow pulse; removed when it goes unaffordable
@@ -297,7 +300,9 @@ transmutation engine**. This section is the reference for that layer.
   **opus best time** — the banner reports the fastest solve when one
   exists (U51), and the **first-board intro** — one-time how-to line,
   flag persisted with the save (U49), and the **Z undo** — last stroke
-  reverted with exact feed reversal (U48). The DOM stub's `textContent`
+  reverted with exact feed reversal (U48), and the **guide hover** — a
+  row outlines its form's clue cells while hovered (U50). The DOM
+  stub's `textContent`
   returns the tag-stripped text (the win
   banner renders output icons via `innerHTML`).
 - **Simulation**: a greedy player solves on a per-radius interval that
