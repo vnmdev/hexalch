@@ -936,11 +936,11 @@
       boardEl.appendChild(marker);
       mirrorMarkers[i] = marker;
     }
-    // Flow/spear clues get a live badge: how many more greens their scope
-    // still needs (green painted + badge = the clue's count).
+    // Flow/spear/halo clues get a live badge: how many more greens their
+    // scope still needs (green painted + badge = the clue's count).
     for (let i = 0; i < cells.length; i++) {
       const clue = clues[i];
-      if (!clue || (clue.kind !== CLUE.FLOW && clue.kind !== CLUE.SPEAR)) continue;
+      if (!clue || (clue.kind !== CLUE.FLOW && clue.kind !== CLUE.SPEAR && clue.kind !== CLUE.HALO)) continue;
       const c = cells[i], badge = document.createElementNS(SVG_NS, "text");
       badge.setAttribute("x", c.drawX - s * 0.30);
       badge.setAttribute("y", c.drawY - s * 0.48);
@@ -994,19 +994,19 @@
     if (gameState.settings.speedMode) {
       for (let i = 0; i < cells.length; i++) poly[i].classList.toggle("empty", red[i] && state[i] !== 1);
     }
-    // Pass 2: flow/spear badges and forced-move highlights.
+    // Pass 2: flow/spear/halo badges and forced-move highlights.
     // remaining = count - greens painted, so painted greens + the badge
     // number always equal the clue count. A scope cell is a live unknown
     // when it is uncolored AND not proven non-green (fast-mode fades still
     // hold state 0 and must not count). When remaining equals the live
     // unknowns, every one of them is forced green: outline them as the
-    // next valid move. In particular, when only one tile of a line or
-    // arrow clue is left, that tile is highlighted.
+    // next valid move. In particular, when only one tile of such a clue
+    // is left, that tile is highlighted.
     const forced = new Array(cells.length).fill(false);
     const speed = gameState.settings.speedMode;
     for (let i = 0; i < cells.length; i++) {
       const clue = clues[i];
-      if (!clue || (clue.kind !== CLUE.FLOW && clue.kind !== CLUE.SPEAR)) continue;
+      if (!clue || (clue.kind !== CLUE.FLOW && clue.kind !== CLUE.SPEAR && clue.kind !== CLUE.HALO)) continue;
       const g = greenCount(clue);
       const remaining = clue.count - g;
       const badge = clueBadges[i];
