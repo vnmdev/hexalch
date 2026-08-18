@@ -339,6 +339,17 @@
     .resource-rate { font-size: 11px; color: #7fa87f; font-family: 'Courier New', Courier, monospace; margin-left: 6px; }
     .hidden { display: none; }
 
+    /* Accessibility: honour a reduced-motion setting — no marching
+       outlines, no affordability flash, no banner pops. Forced outlines
+       remain visible as static strokes. */
+    @media (prefers-reduced-motion: reduce) {
+      polygon.forced, .board-wrap.success, .tech-btn.just-affordable,
+      .transmute-btn.just-affordable, #win-banner, #opus-banner { animation: none; }
+    }
+    /* The board SVG never overflows a narrow layout: the viewBox keeps the
+       hex proportions while the width follows its column. */
+    #board { max-width: 100%; height: auto; display: block; }
+
     @media (max-width: 1000px) {
       main { grid-template-columns: 1fr; }
     }

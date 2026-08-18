@@ -202,6 +202,14 @@ transmutation engine**. This section is the reference for that layer.
 - **Forced-move march**: a `forced` outline cell animates — its dashed
   stroke marches (`forcedMarch`) and thickens (`forcedPulse`) — so the
   one tile you must paint visibly pulses (CSS only; no JS per-frame).
+- **Reduced motion + responsive board**: under
+  `prefers-reduced-motion: reduce` the forced march, the affordability
+  flash, and the banner pops are all disabled (the forced outline
+  remains as a static stroke), and the board SVG is clamped to its
+  column (`max-width: 100%`, `height: auto` — the viewBox keeps the hex
+  proportions) so a narrow layout can never overflow (CSS only; the
+  harness stub has no CSS engine, so these carry no U check —
+  verified on the host).
 - **Works counter + best time** (`gameState.works`, `gameState.bestSeconds`,
   in the Crucible): counts completed puzzles and keeps the fastest timed
   solve — both increment in `reportWin`, render via `renderWorks()` on
