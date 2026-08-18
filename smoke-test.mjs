@@ -93,12 +93,14 @@ try {
     location: document.getElementById("loc-title").textContent,
     speedMode: gameState.settings.speedMode,
     speedChecked: document.getElementById("speed-mode").checked,
-    redDisabled: document.getElementById("tRed").disabled
+    redDisabled: document.getElementById("tRed").disabled,
+    guideLines: document.querySelectorAll("#clue-guide .clue-line").length
   })`);
   assert(initial.ready === "complete", "page did not finish loading");
   assert(initial.polygons === 37, `radius-three board should have 37 cells, got ${initial.polygons}`);
   assert(initial.location === "The Leaden Chamber", `unexpected initial location: ${initial.location}`);
   assert(initial.speedMode && initial.speedChecked && initial.redDisabled, "Fast Mode is not the synchronized default");
+  assert(initial.guideLines === 1, `fresh game guide should list one clue form, got ${initial.guideLines}`);
 
   const icons = await evaluate(`({
     ledger: document.querySelectorAll("#resource-list .icon svg").length,
@@ -187,15 +189,16 @@ try {
       inscription: gameState.upgrades.inscription.level,
       location: gameState.currentLocationId,
       clueKinds: [...new Set(clues.filter(Boolean).map(clue => clue.kind))],
+      guideLines: document.querySelectorAll("#clue-guide .clue-line").length,
       hasUpgradeButton: Boolean(document.getElementById("btn-upgrade-board")),
       hasInscribeButton: Boolean(document.getElementById("btn-inscribe")),
-      elements: Object.keys(gameState.elements)
     };
   })()`);
   assert(finalBoard.radius === 5, `final board radius is wrong: ${finalBoard.radius}`);
   assert(finalBoard.inscription === 6, `inscription did not reach level six: ${finalBoard.inscription}`);
   assert(finalBoard.location === "aetheric_vault", `final location did not unlock: ${finalBoard.location}`);
   assert(finalBoard.clueKinds.length === 5, `final board should use all five clue types: ${finalBoard.clueKinds.join(", ")}`);
+  assert(finalBoard.guideLines === 5, `final game guide should list all five clue forms, got ${finalBoard.guideLines}`);
   assert(!finalBoard.hasUpgradeButton, "board upgrade remains available past the cap");
   assert(finalBoard.hasInscribeButton, "inscription should remain available at the cap");
   assert(finalBoard.elements.join(",") === "earth,water,air,fire,quintessence", "classical element roster is wrong");
