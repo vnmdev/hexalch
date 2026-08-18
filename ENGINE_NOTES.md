@@ -115,6 +115,11 @@ transmutation engine**. This section is the reference for that layer.
   economy invariant holds). The history is capped at 50 strokes and
   cleared by New Puzzle, Reset, Reveal, a WIP restore, and the
   fast-mode red-clear (U48).
+- **Hint (H)**: for a flat 5 prima, one not-yet-painted correct green
+  gets a temporary gold outline (3 s). Pure guidance — no feed, no move,
+  no win state — so it can never break the economy or the move count;
+  refused without prima, and says so when no hidden greens remain
+  (U52).
 - **New Puzzle** abandons the board the same way: paint on an
   **unsolved** board is refunded 1:1 when a fresh one is forged (U39).
   The button's tooltip states the exact refund live — "Forge a fresh
@@ -301,7 +306,8 @@ transmutation engine**. This section is the reference for that layer.
   exists (U51), and the **first-board intro** — one-time how-to line,
   flag persisted with the save (U49), and the **Z undo** — last stroke
   reverted with exact feed reversal (U48), and the **guide hover** — a
-  row outlines its form's clue cells while hovered (U50). The DOM
+  row outlines its form's clue cells while hovered (U50), and the
+  **hint** — one green outlined for a flat 5-prima fee (U52). The DOM
   stub's `textContent`
   returns the tag-stripped text (the win
   banner renders output icons via `innerHTML`).

@@ -328,6 +328,7 @@
     .clue-badge.over { fill: var(--red); }
     .clue-progress { font-size: 13px; color: var(--accent); font-family: 'Courier New', Courier, monospace; letter-spacing: 1px; }
     polygon.guide-hint { stroke: var(--green); stroke-width: 2.5; }
+    polygon.hinted { stroke: var(--accent); stroke-width: 3; }
     polygon.forced {
       stroke: var(--accent);
       stroke-width: 2;
@@ -344,8 +345,9 @@
        outlines, no affordability flash, no banner pops. Forced outlines
        remain visible as static strokes. */
     @media (prefers-reduced-motion: reduce) {
-      polygon.forced, .board-wrap.success, .tech-btn.just-affordable,
-      .transmute-btn.just-affordable, #win-banner, #opus-banner { animation: none; }
+      polygon.forced, polygon.hinted, .board-wrap.success,
+      .tech-btn.just-affordable, .transmute-btn.just-affordable,
+      #win-banner, #opus-banner { animation: none; }
     }
     /* The board SVG never overflows a narrow layout: the viewBox keeps the
        hex proportions while the width follows its column. */
@@ -426,6 +428,7 @@
           <button id="check-board" title="Check the board: wrong greens get flagged · press c">Check</button>
           <button id="reset-board" title="Clear the board — painted cells are refunded · press x">Reset</button>
           <button id="solve-board" title="See the solution — this board yields nothing">Reveal</button>
+          <button id="hint-board" title="Outline a correct green cell for a moment — 5 prima · press h">Hint</button>
         </div>
         <div class="controls" style="margin-top:20px;">
           <label style="font-size:12px; color:#aaa; display:flex; align-items:center; gap:5px; cursor:pointer;">
@@ -495,6 +498,7 @@
   // late game gets varied rather than merely bigger.
   const INSCRIPTION = { step: 3, baseCost: 100, growth: 1.6 };
   const INSCRIPTION_KINDS = { flow: 3, mirror: 6 };
+  const HINT_COST = 5; // prima per one-off outline; guidance only, no feed
 
   // Glyph icons from the provided sprite pack (hex-alchemist-icons_4,
   // affinity/ — the coloured set; README reserves it for metals + Stone
@@ -692,6 +696,7 @@
   let cells = [], idxOf = new Map(), block = [], solution = [], clues = [];
   let state = [], poly = [], txt = [], mirrorMarkers = [], mirrorGovernors = [], clueBadges = [];
   let nextPuzzleTimer = null;
+  let hintTimer = null;
   let undoStack = [];
   let highlightedScope = [], hoveredCell = -1, dragging = false, dragApply = null, tool = "green", puzzleMoves = 0, puzzleSeconds = 0, totalSeconds = 0, offlineMessage = null;
   let R, W, H, ox, oy, boardEl, boardWrapEl, winBannerEl, winSubEl, opusBannerEl, recipeEl, resListEl, upgradeListEl, techListEl, transmuteListEl, statusEl, guideEl, worksEl, clueProgressEl, moveCountEl, solveTimeEl, newBoardBtn;
@@ -1141,6 +1146,28 @@
     return true;
   }
 
+  // A hint outlines one not-yet-painted correct green for a moment. Pure
+  // guidance: no feed, no move, no win state — just a flat fee.
+  function showHint() {
+    if (gameState.currentPuzzle.solved) { setStatus("The board is complete.", "info"); return false; }
+    const candidates = [];
+    for (let i = 0; i < cells.length; i++) if (solution[i] === 1 && state[i] !== 1) candidates.push(i);
+    if (!candidates.length) { setStatus("No hidden greens remain — check the board.", "info"); return false; }
+    if (gameState.resources.prima_materia.amount < HINT_COST) {
+      setStatus(`Not enough prima materia for a hint (${HINT_COST}).`, "err");
+      return false;
+    }
+    gameState.resources.prima_materia.amount -= HINT_COST;
+    poly.forEach(p => p.classList.remove("hinted"));
+    const i = candidates[Math.floor(Math.random() * candidates.length)];
+    poly[i].classList.add("hinted");
+    if (hintTimer) { clearTimeout(hintTimer); hintTimer = null; }
+    hintTimer = setTimeout(() => { poly[i].classList.remove("hinted"); hintTimer = null; }, 3000);
+    setStatus(`A correct green is outlined for a moment (${HINT_COST} prima).`, "info");
+    updateDynamicUI();
+    return true;
+  }
+
   function applyPaint(i, button) {
     if (gameState.currentPuzzle.solved) return;
     if (dragApply === null) dragApply = firstValue(i, button);
@@ -1337,7 +1364,7 @@
 
     if (!gameState.tutored) {
       gameState.tutored = true;
-      setStatus("Paint a tile green to feed it. Match every clue's number, then Check. Keys: 1/2/3 tools · N new · C check · X reset · Z undo · F fast mode.", "info");
+      setStatus("Paint a tile green to feed it. Match every clue's number, then Check. Keys: 1/2/3 tools · N new · C check · X reset · Z undo · H hint · F fast mode.", "info");
     } else {
       setStatus("New puzzle forged — match every clue's number, then Check.", "info");
     }
@@ -1967,8 +1994,10 @@
     else if (k === "c") checkBoard();
     else if (k === "x") resetBoard();
     else if (k === "z") undoPaint();
+    else if (k === "h") showHint();
     else if (k === "f") { const cb = document.getElementById("speed-mode"); cb.checked = !cb.checked; cb.onchange({ target: cb }); }
   });
+  document.getElementById("hint-board").onclick = showHint;
   document.getElementById("solve-board").onclick = () => {
     for(let i=0;i<cells.length;i++) state[i]= solution[i]===1 ? 1 : (gameState.settings.speedMode ? 0 : 2);
     undoStack.length = 0;
