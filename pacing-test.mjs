@@ -997,6 +997,25 @@ function runUnitChecks() {
     env.byId.get("hint-board").click();
     check("U52e no hidden greens means nothing to hint", env.doc.getElementById("status").textContent.includes("No hidden greens remain"));
   }
+  // U53: total play time survives a reload (opus banner span).
+  {
+    const store = new Map();
+    const a = launchGame(64, store);
+    for (let i = 0; i < 123; i++) a.G.tick(1);
+    a.G.saveProgress();
+    const b = launchGame(64, store);
+    check("U53a totalSeconds round-trips through the save", b.G.totalSeconds === 123);
+  }
+  // U54: the in-progress board's timer round-trips with the WIP.
+  {
+    const store = new Map();
+    const a = launchGame(65, store);
+    for (let i = 0; i < 45; i++) a.G.tick(1);
+    a.G.saveProgress();
+    const b = launchGame(65, store);
+    check("U54a board timer restored from the WIP", b.G.puzzleSeconds === 45);
+    check("U54b the chip shows the restored time", b.env.doc.getElementById("solve-time").textContent === "0m 45s");
+  }
 }
 
 // ---------- Pacing simulation ----------

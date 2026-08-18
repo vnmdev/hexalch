@@ -1386,7 +1386,8 @@
     p.removedTotal = w.removedTotal || 0;
     p.inscribed = w.inscribed || 0;
     p.solved = !!w.solved;
-    puzzleMoves = Math.max(0, Math.floor(Number(w.moves) || 0)); renderMoves(); puzzleSeconds = 0; renderTime();
+    puzzleMoves = Math.max(0, Math.floor(Number(w.moves) || 0)); renderMoves();
+    puzzleSeconds = Math.max(0, Math.floor(Number(w.seconds) || 0)); renderTime();
     buildBoard();
     for (let i = 0; i < cells.length; i++) if (state[i] !== 0) paintCell(i);
     const greens = solution.filter(v => v === 1).length;
@@ -1872,9 +1873,12 @@
       removedTotal: gameState.currentPuzzle.removedTotal || 0,
       inscribed: gameState.currentPuzzle.inscribed || 0,
       solved: gameState.currentPuzzle.solved,
-      moves: puzzleMoves
+      moves: puzzleMoves,
+      seconds: puzzleSeconds
     };
-    try { localStorage.setItem(SAVE_KEY, JSON.stringify({ ...gameState, wip, savedAt: Date.now() })); } catch(e) {}
+    // totalSeconds lives outside gameState, so it is saved explicitly —
+    // otherwise the opus banner's span resets on every reload.
+    try { localStorage.setItem(SAVE_KEY, JSON.stringify({ ...gameState, wip, savedAt: Date.now(), totalSeconds: Math.max(0, Math.floor(totalSeconds)) })); } catch(e) {}
   }
 
   function mergeInventoryMap(defaultMap, savedMap = {}, legacyMap = {}) {
@@ -1935,6 +1939,7 @@
         tutored: !!d.tutored,
         wip
       };
+      totalSeconds = Math.max(0, Math.floor(Number(d.totalSeconds) || 0));
       applyOfflineProgress(d.savedAt);
     } catch(e) { console.error(e); }
   }
