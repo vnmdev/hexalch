@@ -45,7 +45,7 @@ function mulberry32(seed) {
       this.onclick = null;
       this.disabled = false;
       this.checked = false;
-      this.textContent = "";
+      this._text = undefined;
       this.id = "";
       this._listeners = {};
     }
@@ -63,6 +63,7 @@ function mulberry32(seed) {
       };
     }
     set innerHTML(html) {
+      this._text = undefined;
       this._innerHTML = String(html);
       this.children = [];
       const re = /<(\w+)([^>]*)>/g;
@@ -76,6 +77,11 @@ function mulberry32(seed) {
       }
     }
     get innerHTML() { return this._innerHTML; }
+    set textContent(v) { this._text = String(v); this._innerHTML = ""; this.children = []; }
+    get textContent() {
+      if (this._text !== undefined) return this._text;
+      return this._innerHTML ? this._innerHTML.replace(/<[^>]*>/g, "") : "";
+    }
     appendChild(c) { c.parent = this; this.children.push(c); return c; }
     setAttribute(k, v) { this._attrs[k] = String(v); }
     getAttribute(k) { return k in this._attrs ? this._attrs[k] : null; }
@@ -506,6 +512,19 @@ function runUnitChecks() {
       for (let i = 0; i < G.cells.length; i++) if (G.solution[i] === 1 && i !== found.t) G.setCell(i, 1);
       check("U21b last tile outlined in fast mode", polyAt(found.t).classList.contains("forced"));
     }
+  }
+  // U22: coloured glyphs — inlined with real colours (no currentColor) and
+  // per-icon gradient ids, so every url(#) ref resolves inside its own svg.
+  {
+    const { G, env } = launchGame(27);
+    const htmlOf = id => env.byId.get(id).children.map(c => c._innerHTML || "").join("");
+    const ledger = htmlOf("resource-list");
+    check("U22a ledger icons carry real colours", /#[0-9a-f]{6}/.test(ledger) && ledger.indexOf("currentColor") === -1);
+    const transmute = htmlOf("transmute-list");
+    const refs = [...transmute.matchAll(/url\(#([a-z0-9-]+)\)/g)].map(m => m[1]);
+    const defs = [...transmute.matchAll(/linearGradient id="([a-z0-9-]+)"/g)].map(m => m[1]);
+    check("U22b gradient refs resolve locally", refs.length >= 5 && refs.every(r => defs.includes(r)));
+    check("U22c gradient ids are namespaced", defs.length >= 5 && defs.every(d => d.startsWith("g-")));
   }
 }
 
