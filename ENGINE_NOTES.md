@@ -108,6 +108,11 @@ transmutation engine**. This section is the reference for that layer.
 - Changing a fed cell back to empty, or **Reset**, **refunds** each fed
   cell 1:1 — the status line reports the refunded amount
   ("N prima refunded"), so the refund is visible, not silent.
+- **New Puzzle** abandons the board the same way: paint on an
+  **unsolved** board is refunded 1:1 when a fresh one is forged (the
+  button's tooltip states it). A **solved** board never refunds — its
+  paint already converted into yield in `reportWin`, so a refund would
+  pay twice (U39).
 - **Reveal** is a free peek: it sets `solved` without feeding and
   grants **nothing** — the status line now states the forfeited yield
   ("no yield for this board. Forge a new puzzle to continue"), so the
@@ -242,8 +247,10 @@ transmutation engine**. This section is the reference for that layer.
   **location announcement** firing once per real change (U30), the
   **opus banner** reporting elapsed work time and boards (U36), and
   **offline generator progress** — idle yield credited after a real
-  absence and announced (U37), and the **best solve time** — recorded,
-  shown in the works row, flagged on the banner (U38). The DOM stub's
+  absence and announced (U37), the **best solve time** — recorded,
+  shown in the works row, flagged on the banner (U38), and **abandon
+  refund** — New Puzzle refunds unsolved paint, never solved (U39).
+  The DOM stub's
   `textContent` is DOM-faithful: an `innerHTML` set makes `textContent`
   return the tag-stripped text (the win banner renders output icons via
   `innerHTML`).

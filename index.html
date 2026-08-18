@@ -410,10 +410,10 @@
           <span id="solve-time" class="clue-progress" title="time on this board">0m 0s</span>
         </div>
         <div class="controls">
-          <button id="new-board">New Puzzle</button>
-          <button id="check-board">Check</button>
-          <button id="reset-board">Reset</button>
-          <button id="solve-board">Reveal</button>
+          <button id="new-board" title="Forge a fresh board — paint on an unsolved board is refunded">New Puzzle</button>
+          <button id="check-board" title="Check the board: wrong greens get flagged">Check</button>
+          <button id="reset-board" title="Clear the board — painted cells are refunded">Reset</button>
+          <button id="solve-board" title="See the solution — this board yields nothing">Reveal</button>
         </div>
         <div class="controls" style="margin-top:20px;">
           <label style="font-size:12px; color:#aaa; display:flex; align-items:center; gap:5px; cursor:pointer;">
@@ -1267,13 +1267,16 @@
     if (nextPuzzleTimer) { clearTimeout(nextPuzzleTimer); nextPuzzleTimer = null; }
     winBannerEl.classList.remove("show");
     boardWrapEl.classList.remove("success");
+    const wasSolved = gameState.currentPuzzle.solved;
     gameState.currentPuzzle.solved = false;
     const p = gameState.currentPuzzle;
     const insLevel = gameState.upgrades.inscription.level;
     const kinds = clueKinds(p.radius, insLevel);
 
     generate(p.radius, p.density, p.attempts, kinds, insLevel * INSCRIPTION.step);
+    const fed = wasSolved ? 0 : state.filter(v => v === 1).length;
     state = cells.map(() => 0);
+    if (fed > 0) gameState.resources.prima_materia.amount += fed;
     puzzleMoves = 0; renderMoves(); puzzleSeconds = 0; renderTime();
     buildBoard();
 

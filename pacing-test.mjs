@@ -801,6 +801,25 @@ function runUnitChecks() {
     const b = launchGame(48, store);
     check("U38f best persists through a refresh", b.G.gameState.bestSeconds === 172);
   }
+  // U39: abandoning an unsolved board refunds its paint (like Reset);
+  // leaving a solved board does not refund paint already converted to
+  // yield.
+  {
+    const { G } = launchGame(49);
+    const gs = G.gameState;
+    const greens = [];
+    for (let i = 0; i < G.cells.length; i++) if (G.solution[i] === 1) greens.push(i);
+    const before = gs.resources.prima_materia.amount;
+    for (const i of greens.slice(0, 3)) G.setCell(i, 1);
+    G.startPuzzle();
+    check("U39a abandoning an unsolved board refunds the paint", gs.resources.prima_materia.amount === before);
+    const b2 = launchGame(50);
+    for (let i = 0; i < b2.G.cells.length; i++) if (b2.G.solution[i] === 1) b2.G.setCell(i, 1);
+    b2.G.reportWin();
+    const paid = b2.G.gameState.resources.prima_materia.amount;
+    b2.G.startPuzzle();
+    check("U39b leaving a solved board does not refund twice", b2.G.gameState.resources.prima_materia.amount === paid);
+  }
 }
 
 // ---------- Pacing simulation ----------
