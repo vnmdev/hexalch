@@ -326,6 +326,8 @@
     .clue-badge.need { fill: var(--accent); }
     .clue-badge.ok { fill: #6f9e6a; }
     .clue-badge.over { fill: var(--red); }
+    .clue-badge.just-ok { transform-box: fill-box; transform-origin: center; animation: badgePop 0.7s ease-out; }
+    @keyframes badgePop { 0% { transform: scale(1); } 40% { transform: scale(1.65); } 100% { transform: scale(1); } }
     .clue-progress { font-size: 13px; color: var(--accent); font-family: 'Courier New', Courier, monospace; letter-spacing: 1px; }
     polygon.guide-hint { stroke: var(--green); stroke-width: 2.5; }
     polygon.hinted { stroke: var(--accent); stroke-width: 3; }
@@ -347,7 +349,7 @@
     @media (prefers-reduced-motion: reduce) {
       polygon.forced, polygon.hinted, .board-wrap.success,
       .tech-btn.just-affordable, .transmute-btn.just-affordable,
-      #win-banner, #opus-banner { animation: none; }
+      .clue-badge.just-ok, #win-banner, #opus-banner { animation: none; }
     }
     /* The board SVG never overflows a narrow layout: the viewBox keeps the
        hex proportions while the width follows its column. */
@@ -1041,9 +1043,10 @@
       const remaining = clue.count - g;
       const badge = clueBadges[i];
       if (badge) {
-        if (remaining < 0) { badge.textContent = "!"; badge.classList.remove("need", "ok"); badge.classList.add("over"); }
-        else if (remaining === 0) { badge.textContent = "✓"; badge.classList.remove("need", "over"); badge.classList.add("ok"); }
-        else { badge.textContent = String(remaining); badge.classList.remove("ok", "over"); badge.classList.add("need"); }
+        const wasOk = badge.classList.contains("ok");
+        if (remaining < 0) { badge.textContent = "!"; badge.classList.remove("need", "ok", "just-ok"); badge.classList.add("over"); }
+        else if (remaining === 0) { badge.textContent = "✓"; badge.classList.remove("need", "over"); badge.classList.add("ok"); if (!wasOk) badge.classList.add("just-ok"); }
+        else { badge.textContent = String(remaining); badge.classList.remove("ok", "over", "just-ok"); badge.classList.add("need"); }
         badge.dataset.remaining = String(remaining);
       }
       if (remaining > 0) {

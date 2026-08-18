@@ -154,6 +154,7 @@ const HOOK = `
   get solution() { return solution; },
   get state() { return state; },
   get poly() { return poly; },
+  get clueBadges() { return clueBadges; },
   get clues() { return clues; },
   get puzzleMoves() { return puzzleMoves; },
   get puzzleSeconds() { return puzzleSeconds; },
@@ -1015,6 +1016,32 @@ function runUnitChecks() {
     const b = launchGame(65, store);
     check("U54a board timer restored from the WIP", b.G.puzzleSeconds === 45);
     check("U54b the chip shows the restored time", b.env.doc.getElementById("solve-time").textContent === "0m 45s");
+  }
+  // U55: a satisfied clue badge pops once, and replays on re-satisfaction.
+  {
+    const { G } = launchGame(66);
+    G.gameState.resources.prima_materia.amount = 100000;
+    while (G.gameState.upgrades.inscription.level < 3) G.buyInscription();
+    let ci = -1;
+    for (let tries = 0; tries < 5 && ci < 0; tries++) {
+      G.startPuzzle();
+      for (let i = 0; i < G.cells.length; i++) {
+        const c = G.clues[i];
+        if (c && (c.kind === G.CLUE.FLOW || c.kind === G.CLUE.SPEAR || c.kind === G.CLUE.HALO) && c.count >= 1) { ci = i; break; }
+      }
+    }
+    check("U55a a badged clue with a target is on the board", ci >= 0);
+    const clue = G.clues[ci];
+    const badge = G.clueBadges[ci];
+    const greensIn = clue.cells.filter(j => G.solution[j] === 1);
+    const n = Math.min(greensIn.length, clue.count);
+    for (let k = 0; k + 1 < n; k++) G.setCell(greensIn[k], 1);
+    check("U55b an unsatisfied badge is not popped", n > 0 && !badge.classList.contains("just-ok"));
+    G.setCell(greensIn[n - 1], 1);
+    check("U55c satisfying the clue pops the badge", badge.classList.contains("ok") && badge.classList.contains("just-ok"));
+    G.setCell(greensIn[n - 1], 0);
+    G.setCell(greensIn[n - 1], 1);
+    check("U55d the pop replays when the clue re-satisfies", badge.classList.contains("just-ok"));
   }
 }
 
