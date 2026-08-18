@@ -781,6 +781,26 @@ function runUnitChecks() {
     check("U37a offline generators produced", Math.floor(prima) === Math.floor(primaAtSave + 3600), `prima=${prima} expect=${primaAtSave + 3600}`);
     check("U37b return is announced", b.env.doc.getElementById("status").textContent.includes("While you were away"));
   }
+  // U38: best solve time — recorded on the first timed solve, shown in
+  // the works row, flagged on the banner when beaten, and persisted.
+  {
+    const store = new Map();
+    const { G, env } = launchGame(47, store);
+    const paintAll = () => { for (let i = 0; i < G.cells.length; i++) if (G.solution[i] === 1) G.setCell(i, 1); };
+    G.tick(172); G.updateDynamicUI();
+    paintAll(); G.reportWin();
+    check("U38a first timed solve records the best", G.gameState.bestSeconds === 172);
+    check("U38b works row shows the best", env.byId.get("works-count").textContent.includes("2m 52s"));
+    check("U38c banner flags a new best", env.doc.querySelector("#win-banner .win-sub").textContent.includes("new best"));
+    G.startPuzzle();
+    G.tick(300); G.updateDynamicUI();
+    paintAll(); G.reportWin();
+    check("U38d a slower solve keeps the old best", G.gameState.bestSeconds === 172);
+    check("U38e no flag on a non-best board", !env.doc.querySelector("#win-banner .win-sub").textContent.includes("new best"));
+    G.saveProgress();
+    const b = launchGame(48, store);
+    check("U38f best persists through a refresh", b.G.gameState.bestSeconds === 172);
+  }
 }
 
 // ---------- Pacing simulation ----------

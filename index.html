@@ -672,7 +672,8 @@
     settings: { speedMode: true },
     currentPuzzle: { radius: 3, density: 0.4, attempts: 5, solved: false },
     currentLocationId: "leaden_chamber",
-    works: 0
+    works: 0,
+    bestSeconds: 0
   };
 
   let cells = [], idxOf = new Map(), block = [], solution = [], clues = [];
@@ -1156,6 +1157,10 @@
     if (gameState.currentPuzzle.solved) return;
     gameState.currentPuzzle.solved = true;
     gameState.works = (gameState.works || 0) + 1;
+    // The fastest board is the record: shown in the works row, flagged on
+    // the banner when beaten, and persisted with the save.
+    const isNewBest = puzzleSeconds > 0 && (gameState.bestSeconds === 0 || puzzleSeconds < gameState.bestSeconds);
+    if (isNewBest) gameState.bestSeconds = puzzleSeconds;
 
     // The pattern is complete: whatever prima was fed into the green cells
     // is released as the elements the current crucible knows how to make.
@@ -1166,7 +1171,7 @@
       addInventory(id, per);
       outputs.push({ id, text: `${per} ${gameState.elements[id].sym} ${gameState.elements[id].name.toLowerCase()}` });
     }
-    winSubEl.innerHTML = `${outputs.map(o => `${iconHtml(o.id, 14)}${o.text}`).join("  ")}  ·  ${greens} prima fed · ${puzzleMoves} moves · ${fmtTime(puzzleSeconds)}`;
+    winSubEl.innerHTML = `${outputs.map(o => `${iconHtml(o.id, 14)}${o.text}`).join("  ")}  ·  ${greens} prima fed · ${puzzleMoves} moves · ${fmtTime(puzzleSeconds)}${isNewBest ? " · new best!" : ""}`;
     setStatus(`Transmutation complete: +${outputs.map(o => o.text).join(" +")}`, "win");
 
     updateUI();
@@ -1479,7 +1484,9 @@
   }
 
   function renderWorks() {
-    worksEl.textContent = `Works completed: ${gameState.works}`;
+    worksEl.textContent = gameState.bestSeconds > 0
+      ? `Works completed: ${gameState.works} · best ${fmtTime(gameState.bestSeconds)}`
+      : `Works completed: ${gameState.works}`;
   }
 
   function checkAndSetLocation() {
@@ -1814,6 +1821,7 @@
         currentPuzzle: { radius, density: 0.4, attempts: 5, solved: false },
         currentLocationId: d.currentLocationId || defaults.currentLocationId,
         works: Math.max(0, Math.floor(Number(d.works) || 0)),
+        bestSeconds: Math.max(0, Math.floor(Number(d.bestSeconds) || 0)),
         wip
       };
       applyOfflineProgress(d.savedAt);

@@ -184,10 +184,12 @@ transmutation engine**. This section is the reference for that layer.
 - **Forced-move march**: a `forced` outline cell animates — its dashed
   stroke marches (`forcedMarch`) and thickens (`forcedPulse`) — so the
   one tile you must paint visibly pulses (CSS only; no JS per-frame).
-- **Works counter** (`gameState.works`, in the Crucible): counts
-  completed puzzles, increments in `reportWin`, rendered by
-  `renderWorks()` on structural updates, and persisted through the
-  save/load round trip (U13f, U25e/f).
+- **Works counter + best time** (`gameState.works`, `gameState.bestSeconds`,
+  in the Crucible): counts completed puzzles and keeps the fastest timed
+  solve — both increment in `reportWin`, render via `renderWorks()` on
+  structural updates ("Works completed: N · best 2m 52s"), and persist
+  through the save/load round trip (U13f, U25e/f). A solve that beats
+  the record appends "· new best!" to the win banner (U38).
 - **Clue-progress chip** (`#clue-progress`, under the board): a live
   `satisfied/total` count of the clue rows, updated in `updateFades()`
   on every paint so the solver can see how close the board is (U26).
@@ -240,7 +242,8 @@ transmutation engine**. This section is the reference for that layer.
   **location announcement** firing once per real change (U30), the
   **opus banner** reporting elapsed work time and boards (U36), and
   **offline generator progress** — idle yield credited after a real
-  absence and announced (U37). The DOM stub's
+  absence and announced (U37), and the **best solve time** — recorded,
+  shown in the works row, flagged on the banner (U38). The DOM stub's
   `textContent` is DOM-faithful: an `innerHTML` set makes `textContent`
   return the tag-stripped text (the win banner renders output icons via
   `innerHTML`).
