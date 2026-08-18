@@ -299,6 +299,9 @@
       transition: all 0.3s;
     }
     .transmute-btn:hover { background: var(--accent); color: #000; box-shadow: 0 0 15px var(--accent-glow); }
+    .transmute-actions { display: flex; gap: 6px; margin-top: 8px; }
+    .transmute-actions .transmute-btn { margin-top: 0; flex: 1; }
+    .transmute-ten { flex: 0 0 auto; width: auto; min-width: 56px; }
 
     /* Status Messages */
     #status { margin-top: 10px; font-size: 14px; height: 20px; text-align: center; font-style: italic; }
@@ -455,6 +458,10 @@
         <div id="transmute-list"></div>
         <hr style="border:0; border-top:1px solid var(--border); margin:20px 0;">
         <div id="tech-tree-list"></div>
+        <hr style="border:0; border-top:1px solid var(--border); margin:20px 0;">
+        <div style="text-align:right;">
+          <button id="abandon-work" style="background:none; border:1px solid var(--border); color:#888; padding:6px 12px; font-size:12px; cursor:pointer;" title="Delete the save and start the work over from a cold crucible">Abandon Work</button>
+        </div>
       </div>
     </section>
   </main>
@@ -692,7 +699,8 @@
     currentLocationId: "leaden_chamber",
     works: 0,
     bestSeconds: 0,
-    tutored: false
+    tutored: false,
+    deepeningNoted: false
   };
 
   let cells = [], idxOf = new Map(), block = [], solution = [], clues = [];
@@ -1349,7 +1357,8 @@
 
     // After the Stone, the work deepens: every two completed works make the
     // generator try more times to thin the board (harder), capped at +10.
-    const attempts = 5 + (gameState.techTree.philosophers_stone ? Math.min(10, Math.floor((gameState.works || 0) / 2)) : 0);
+    const deepening = gameState.techTree.philosophers_stone ? Math.min(10, Math.floor((gameState.works || 0) / 2)) : 0;
+    const attempts = 5 + deepening;
     p.attempts = attempts;
     generate(p.radius, p.density, p.attempts, kinds, insLevel * INSCRIPTION.step);
     const fed = wasSolved ? 0 : state.filter(v => v === 1).length;
@@ -1368,6 +1377,9 @@
     if (!gameState.tutored) {
       gameState.tutored = true;
       setStatus("Paint a tile green to feed it. Match every clue's number, then Check. Keys: 1/2/3 tools · N new · C check · X reset · Z undo · H hint · F fast mode.", "info");
+    } else if (deepening > 0 && !gameState.deepeningNoted) {
+      gameState.deepeningNoted = true;
+      setStatus("The work deepens — the crucible demands more.", "win");
     } else {
       setStatus("New puzzle forged — match every clue's number, then Check.", "info");
     }
@@ -1511,6 +1523,20 @@
     setStatus(`Transmuted ${id}!`, "win");
     updateUI();
     saveProgress();
+  }
+
+  // ×10: run the recipe again and again while it stays affordable, up to
+  // `n` times — the mid-game click treadmill, condensed.
+  function transmuteBatch(type, id, n) {
+    let made = 0;
+    for (let k = 0; k < n; k++) {
+      const before = type === "metal" ? gameState.metals[id].amount : gameState.elements[id].amount;
+      transmute(type, id);
+      const after = type === "metal" ? gameState.metals[id].amount : gameState.elements[id].amount;
+      if (after === before) break;
+      made++;
+    }
+    if (made > 0) setStatus(`Transmuted ${made}× ${id}.`, "win");
   }
 
   // ---------- UI Management ----------
@@ -1819,13 +1845,19 @@
       div.innerHTML = `
         <span class="tech-name">${iconHtml(id, 16, data.name)}${data.sym} ${data.name}</span>
         <span class="tech-cost">${costStr}</span>
-        <button class="transmute-btn" id="transmute-m-${id}">Transmute</button>
+        <div class="transmute-actions">
+          <button class="transmute-btn" id="transmute-m-${id}">Transmute</button>
+          <button class="transmute-btn transmute-ten" id="transmute-m-${id}-x10" title="Transmute up to ten while the recipe stays affordable">×10</button>
+        </div>
       `;
       transmuteListEl.appendChild(div);
       {
         const btn = document.getElementById(`transmute-m-${id}`);
         btn.onclick = () => transmute('metal', id);
         registerButton(btn, recipe.cost);
+        const ten = document.getElementById(`transmute-m-${id}-x10`);
+        ten.onclick = () => transmuteBatch('metal', id, 10);
+        registerButton(ten, recipe.cost);
       }
     }
 
@@ -1849,13 +1881,19 @@
         <span class="tech-name">${iconHtml("quintessence", 16, data.name)}${data.sym} ${data.name}</span>
         <span class="tech-desc">Unite earth, water, air and fire.</span>
         <span class="tech-cost">${costStr}</span>
-        <button class="transmute-btn" id="transmute-e-${id}">Distill</button>
+        <div class="transmute-actions">
+          <button class="transmute-btn" id="transmute-e-${id}">Distill</button>
+          <button class="transmute-btn transmute-ten" id="transmute-e-${id}-x10" title="Distill up to ten while the recipe stays affordable">×10</button>
+        </div>
       `;
       transmuteListEl.appendChild(div);
       {
         const btn = document.getElementById(`transmute-e-${id}`);
         btn.onclick = () => transmute('element', id);
         registerButton(btn, recipe.cost);
+        const ten = document.getElementById(`transmute-e-${id}-x10`);
+        ten.onclick = () => transmuteBatch('element', id, 10);
+        registerButton(ten, recipe.cost);
       }
     }
   }
@@ -1940,6 +1978,7 @@
         works: Math.max(0, Math.floor(Number(d.works) || 0)),
         bestSeconds: Math.max(0, Math.floor(Number(d.bestSeconds) || 0)),
         tutored: !!d.tutored,
+        deepeningNoted: !!d.deepeningNoted,
         wip
       };
       totalSeconds = Math.max(0, Math.floor(Number(d.totalSeconds) || 0));
@@ -2006,6 +2045,12 @@
     else if (k === "f") { const cb = document.getElementById("speed-mode"); cb.checked = !cb.checked; cb.onchange({ target: cb }); }
   });
   document.getElementById("hint-board").onclick = showHint;
+  document.getElementById("abandon-work").onclick = () => {
+    if (confirm("Abandon the work? The save is deleted and the crucible starts cold.")) {
+      localStorage.removeItem(SAVE_KEY);
+      location.reload();
+    }
+  };
   document.getElementById("solve-board").onclick = () => {
     for(let i=0;i<cells.length;i++) state[i]= solution[i]===1 ? 1 : (gameState.settings.speedMode ? 0 : 2);
     undoStack.length = 0;

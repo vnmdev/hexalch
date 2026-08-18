@@ -21,6 +21,16 @@ Flow, spear and halo clues carry a **live badge** next to the glyph: `remaining 
   again each time it re-satisfies after overfilling or erasing), it
   plays a one-shot scale pop — the moment of success is visible, not
   just a colour change; joins the reduced-motion opt-out (U55).
+- **Abandon Work** (Alembic footer): a quiet "Abandon Work" button,
+  behind a native confirm, deletes the save and reloads — the only way
+  to start the work over from a cold crucible (U56).
+- **×10 transmutation**: every transmute/distill row carries a ×10
+  button that runs the recipe repeatedly while it stays affordable
+  (`transmuteBatch`, up to ten), condensing the mid-game click
+  treadmill (U57).
+- **The deepening beat**: the first board after the Stone whose
+  attempts have risen announces it once — "The work deepens — the
+  crucible demands more." — then the flag persists (U58).
 
 **Glyph icons** come from the provided sprite pack `assets/sprites/hex-alchemist-icons_4/` — the **`affinity/` coloured set** (the README reserves it for the metals + Stone tiers, which monochrome tinting cannot reproduce; `source/` is the currentColor web set, `godot/` white-for-tinting). The 16 used glyphs are inlined in `ICON_SVGS` so the game stays a single file. The six gradient glyphs (lead, iron, copper, silver, gold, philosophers-stone-iv) carry `id="g"` in the originals — inlining many copies into one document would make every `url(#g)` resolve to the FIRST gradient on the page, so ids are **namespaced per icon** (`g-<name>` + matching `url(#g-<name>)`). `ICON_GLOW` holds each glyph's glow colour; `.icon` applies `filter: drop-shadow(0 0 3px var(--glow))` — the web stand-in for the pack's pre-rasterised halo PNGs (7–10 KB each, not inlined). `iconHtml(id, size, label)` renders one with a native `title` tooltip. Mapping: prima materia→alkahest, the five elements→themselves, the five metals→themselves, nigredo→black-mercury, albedo→salt, citrinitas→sulfur, rubedo→philosophers-sulfur, Philosopher's Stone→philosophers-stone-iv (also the Magnum Opus banner icon, set in `celebrateMagnumOpus`, with a 16 px glow in the stone's own orange). Icons appear on ledger rows, transmutation rows, tech-tree rows, generator rows, the recipe line, the win-banner output, and the opus banner.
 
@@ -319,10 +329,12 @@ transmutation engine**. This section is the reference for that layer.
   row outlines its form's clue cells while hovered (U50), and the
   **hint** — one green outlined for a flat 5-prima fee (U52), and
   **time persistence** — total play time and the in-progress board's
-  timer both round-trip through the save (U53, U54). The DOM
-  stub's `textContent`
-  returns the tag-stripped text (the win
-  banner renders output icons via `innerHTML`).
+  timer both round-trip through the save (U53, U54), the **×10
+  batch** — transmute while affordable, up to ten (U57), **Abandon
+  Work** — confirm-gated save deletion (U56), and the **deepening
+  beat** — one-shot announcement of the first post-Stone deepened
+  board (U58). The DOM stub's `textContent` returns the tag-stripped
+  text (the win banner renders output icons via `innerHTML`).
 - **Simulation**: a greedy player solves on a per-radius interval that
   **shrinks with inscription** (`base * 0.95^etched clues`, floor 30 s),
   upgrades the crucible, **buys inscription whenever affordable**, buys

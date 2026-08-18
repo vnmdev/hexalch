@@ -135,8 +135,14 @@ function mulberry32(seed) {
   const setTimeoutS = fn => { timers.push({ fn }); return timers.length; };
   const clearTimeoutS = id => { if (timers[id]) timers[id].dead = true; };
   const math = new Proxy(Math, { get: (t, k) => (k === "random" ? rand : t[k]) });
+  // confirm/location stand-ins, harness-controlled for the Abandon Work check.
+  const confirmState = { answer: true };
+  const confirmCalls = [];
+  let reloaded = false;
+  const confirmS = msg => { confirmCalls.push(msg); return confirmState.answer; };
+  const locationS = { reload: () => { reloaded = true; } };
 
-  return { doc, win, ls, setIntervalS, setTimeoutS, clearTimeoutS, math, byId, timers };
+  return { doc, win, ls, setIntervalS, setTimeoutS, clearTimeoutS, math, byId, timers, confirmS, locationS, confirmState, confirmCalls, get reloaded() { return reloaded; } };
 }
 
 // ---------- Game launch ----------
@@ -174,8 +180,8 @@ const HOOK = `
 
  function launchGame(seed, store) {
    const env = makeEnv(mulberry32(seed), store);
-  const fn = new Function("document", "window", "localStorage", "setInterval", "setTimeout", "clearTimeout", "Math", "console", SCRIPT_CACHE + HOOK);
-  fn(env.doc, env.win, env.ls, env.setIntervalS, env.setTimeoutS, env.clearTimeoutS, env.math, console);
+  const fn = new Function("document", "window", "localStorage", "setInterval", "setTimeout", "clearTimeout", "Math", "console", "confirm", "location", SCRIPT_CACHE + HOOK);
+  fn(env.doc, env.win, env.ls, env.setIntervalS, env.setTimeoutS, env.clearTimeoutS, env.math, console, env.confirmS, env.locationS);
   const G = globalThis.__game;
   if (!G) throw new Error("game script did not expose __game");
   return { G, env };
@@ -1042,6 +1048,53 @@ function runUnitChecks() {
     G.setCell(greensIn[n - 1], 0);
     G.setCell(greensIn[n - 1], 1);
     check("U55d the pop replays when the clue re-satisfies", badge.classList.contains("just-ok"));
+  }
+  // U56: Abandon Work deletes the save, behind a confirmation.
+  {
+    const { G, env } = launchGame(67);
+    env.win.fire("keydown", { key: "f" }); // toggling fast mode makes a save exist
+    check("U56a a save exists before abandoning", env.ls.getItem("greatwork_v4") !== null);
+    env.confirmState.answer = false;
+    env.byId.get("abandon-work").click();
+    check("U56b declining keeps the save and does not reload", env.ls.getItem("greatwork_v4") !== null && env.reloaded === false && env.confirmCalls.length === 1);
+    env.confirmState.answer = true;
+    env.byId.get("abandon-work").click();
+    check("U56c confirming deletes the save and reloads", env.ls.getItem("greatwork_v4") === null && env.reloaded === true);
+  }
+  // U57: ×10 transmutes in a batch, stopping when the recipe runs out.
+  {
+    const { G, env } = launchGame(68);
+    const recipe = G.METAL_RECIPES["iron"];
+    const stock = (mult) => {
+      for (const [rid, n] of Object.entries(recipe.cost)) {
+        if (rid === "prima_materia") G.gameState.resources.prima_materia.amount += n * mult;
+        else if (G.METAL_RECIPES[rid]) G.gameState.metals[rid].amount += n * mult;
+        else G.gameState.elements[rid].amount += n * mult;
+      }
+    };
+    stock(3);
+    const before = G.gameState.metals.iron.amount;
+    env.byId.get("transmute-m-iron-x10").click();
+    check("U57a ×10 stops when the stock runs out", G.gameState.metals.iron.amount === before + 3);
+    stock(10);
+    const before2 = G.gameState.metals.iron.amount;
+    env.byId.get("transmute-m-iron-x10").click();
+    check("U57b ×10 goes the full ten when stock allows", G.gameState.metals.iron.amount === before2 + 10);
+  }
+  // U58: the first deepened board after the Stone announces itself once.
+  {
+    const { G, env } = launchGame(69);
+    const gs = G.gameState;
+    for (const pool of [gs.resources, gs.metals, gs.elements]) for (const entry of Object.values(pool)) entry.amount = 100000;
+    for (const t of G.TECHS) G.buyTech(t.id);
+    gs.works = 4; // deepening 2
+    G.startPuzzle();
+    check("U58a the first deepened board announces the beat", env.doc.getElementById("status").textContent.includes("The work deepens"));
+    G.startPuzzle();
+    check("U58b the beat is one-shot", env.doc.getElementById("status").textContent === "New puzzle forged — match every clue's number, then Check.");
+    env.win.fire("keydown", { key: "f" }); // toggling fast mode saves
+    const raw = JSON.parse(env.ls.getItem("greatwork_v4"));
+    check("U58c the beat flag persists", raw.deepeningNoted === true);
   }
 }
 
