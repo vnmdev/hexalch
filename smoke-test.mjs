@@ -104,12 +104,24 @@ try {
     ledger: document.querySelectorAll("#resource-list .icon svg").length,
     tech: document.querySelectorAll("#tech-tree-list .icon svg").length,
     transmute: document.querySelectorAll("#transmute-list .icon svg").length,
-    recipe: document.querySelectorAll("#recipe .icon svg").length
+    recipe: document.querySelectorAll("#recipe .icon svg").length,
+    colored: (() => {
+      const svgs = [...document.querySelectorAll(".icon svg")];
+      const hasColour = svg => /#[0-9a-f]{6}/i.test(svg.innerHTML) || svg.innerHTML.indexOf("url(#") !== -1;
+      const noCurrentColor = svgs.every(svg => svg.innerHTML.indexOf("currentColor") === -1);
+      // Gradient refs must resolve inside their own svg (ids are namespaced).
+      const local = svgs.every(svg =>
+        [...svg.querySelectorAll("[stroke]")].map(e => e.getAttribute("stroke"))
+          .filter(v => v && v.indexOf("url(") === 0).every(v =>
+            svg.querySelector('linearGradient[id="' + v.slice(5, -1) + '"]') !== null));
+      return svgs.length > 0 && svgs.every(hasColour) && noCurrentColor && local;
+    })()
   })`);
   assert(icons.ledger >= 1, "ledger rows should carry glyph icons");
   assert(icons.tech === 5, `tech tree should show five icons, got ${icons.tech}`);
   assert(icons.transmute === 6, `transmutation list should show six icons, got ${icons.transmute}`);
   assert(icons.recipe >= 1, "recipe line should render element icons");
+  assert(icons.colored, "glyph icons should be coloured, not currentColor, with local gradient refs");
 
   const solved = await evaluate(`(() => {
     gameState.resources.prima_materia.amount = 20;
