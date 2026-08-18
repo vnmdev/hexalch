@@ -439,7 +439,7 @@
         </div>
         <div class="controls" style="margin-top:20px;">
           <label style="font-size:12px; color:#aaa; display:flex; align-items:center; gap:5px; cursor:pointer;">
-            <input type="checkbox" id="speed-mode" checked title="Toggle fast mode · press f"> Fast Mode
+            <input type="checkbox" id="speed-mode" checked title="Fast mode — paint only the greens; the reds stay implied · press F"> Fast Mode
           </label>
         </div>
         <div class="controls" id="tool-controls">
@@ -751,6 +751,7 @@
   function renderMoves() { moveCountEl.textContent = puzzleMoves + " moves"; }
 
   function fmtTime(s) { const m = Math.floor(s / 60), r = Math.floor(s % 60); return `${m}m ${r}s`; }
+  function fmtTimeLong(s) { const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), r = Math.floor(s % 60); return h > 0 ? `${h}h ${m}m` : `${m}m ${r}s`; }
   function renderTime() { solveTimeEl.textContent = fmtTime(puzzleSeconds); }
 
   // ---------- Core Engine ----------
@@ -1372,6 +1373,27 @@
     updateUI();
     saveProgress();
   }
+  function buyGeneratorMax(id) {
+    const gen = GENERATORS[id];
+    if (!gen) return;
+    if (gameState.upgrades.board_size.radius < gen.minRadius) {
+      setStatus(`${gen.name} unlocks at crucible radius ${gen.minRadius}.`, "err");
+      return;
+    }
+    const start = gameState.generators[id] || 0;
+    let bought = 0;
+    while (bought < 10) {
+      const cost = generatorCost(id);
+      if (gameState.resources.prima_materia.amount < cost) break;
+      gameState.resources.prima_materia.amount -= cost;
+      gameState.generators[id] = (gameState.generators[id] || 0) + 1;
+      bought++;
+    }
+    if (bought === 0) { setStatus("Not enough Prima Materia.", "err"); return; }
+    setStatus(`${gen.name} level ${start} → ${start + bought} — ${generatorRate(id).toFixed(2)}/s.`, "win");
+    updateUI();
+    saveProgress();
+  }
 
 
   function startPuzzle() {
@@ -1652,9 +1674,8 @@
   }
 
   function renderWorks() {
-    worksEl.textContent = gameState.bestSeconds > 0
-      ? `Works completed: ${gameState.works} · best ${fmtTime(gameState.bestSeconds)}`
-      : `Works completed: ${gameState.works}`;
+    const best = gameState.bestSeconds > 0 ? ` · best ${fmtTime(gameState.bestSeconds)}` : "";
+    worksEl.textContent = `Works completed: ${gameState.works}${best} · played ${fmtTimeLong(totalSeconds)}`;
   }
 
   function checkAndSetLocation() {
@@ -1805,13 +1826,16 @@
         <span class="tech-name">${iconHtml(gen.produces, 14, resName(gen.produces))}${gen.name}${level > 0 ? ` · Lv ${level}` : ""}</span>
         <span class="tech-desc">${locked ? `Unlocks at crucible radius ${gen.minRadius}.` : `Produces ${rate.toFixed(2)} ${gen.produces.replaceAll("_", " ")}/s`}</span>
         ${locked ? "" : `<span class="tech-cost">${cost} Prima Materia</span>`}
-        ${locked ? "" : `<button class="tech-btn primary" id="btn-gen-${id}">${level > 0 ? "Expand" : "Build"}</button>`}
+        ${locked ? "" : `<span style="display:flex; gap:6px;"><button class="tech-btn primary" id="btn-gen-${id}">${level > 0 ? "Expand" : "Build"}</button><button class="tech-btn" id="btn-gen-${id}-max" title="Expand up to ten more levels while affordable">Max</button></span>`}
       `;
       upgradeListEl.appendChild(div);
       if (!locked) {
         const btn = document.getElementById(`btn-gen-${id}`);
         btn.onclick = () => buyGenerator(id);
         registerButton(btn, { prima_materia: cost });
+        const max = document.getElementById(`btn-gen-${id}-max`);
+        max.onclick = () => buyGeneratorMax(id);
+        registerButton(max, { prima_materia: cost });
       }
     }
 
@@ -2141,7 +2165,7 @@
   if (gameState.wip) restorePuzzle();
   else startPuzzle();
   if (offlineMessage) { setStatus(offlineMessage, "info"); offlineMessage = null; }
-  setInterval(() => { tick(1); updateDynamicUI(); }, 1000);
+  setInterval(() => { tick(1); updateDynamicUI(); renderWorks(); }, 1000);
 
  </script>
 </body>

@@ -43,6 +43,14 @@ Flow, spear and halo clues carry a **live badge** next to the glyph: `remaining 
   the metal (or quintessence) the first un-forged tech whose prereqs
   are all forged still needs — the work's path visible at a glance
   (U63).
+- **Generator Max**: every unlocked generator row carries a Max
+  button that expands up to ten more levels in one click while they
+  stay affordable (U64).
+- **Total play time**: the works row is a permanent session ledger —
+  works, best board, and total time played (h/m past the hour),
+  refreshed every second (U65).
+- **Fast-mode tooltip**: the toggle now explains the mode, not just
+  the key (U66).
 
 **Glyph icons** come from the provided sprite pack `assets/sprites/hex-alchemist-icons_4/` — the **`affinity/` coloured set** (the README reserves it for the metals + Stone tiers, which monochrome tinting cannot reproduce; `source/` is the currentColor web set, `godot/` white-for-tinting). The 16 used glyphs are inlined in `ICON_SVGS` so the game stays a single file. The six gradient glyphs (lead, iron, copper, silver, gold, philosophers-stone-iv) carry `id="g"` in the originals — inlining many copies into one document would make every `url(#g)` resolve to the FIRST gradient on the page, so ids are **namespaced per icon** (`g-<name>` + matching `url(#g-<name>)`). `ICON_GLOW` holds each glyph's glow colour; `.icon` applies `filter: drop-shadow(0 0 3px var(--glow))` — the web stand-in for the pack's pre-rasterised halo PNGs (7–10 KB each, not inlined). `iconHtml(id, size, label)` renders one with a native `title` tooltip. Mapping: prima materia→alkahest, the five elements→themselves, the five metals→themselves, nigredo→black-mercury, albedo→salt, citrinitas→sulfur, rubedo→philosophers-sulfur, Philosopher's Stone→philosophers-stone-iv (also the Magnum Opus banner icon, set in `celebrateMagnumOpus`, with a 16 px glow in the stone's own orange). Icons appear on ledger rows, transmutation rows, tech-tree rows, generator rows, the recipe line, the win-banner output, and the opus banner.
 
@@ -349,9 +357,12 @@ transmutation engine**. This section is the reference for that layer.
   click holds the board (U59), and the **works milestone** — every
   25th board bears fruit (U61), the **save code** — export/import in
   the Alembic footer (U62), and the **next recipe marker** — the
-  "next" chip on the work's next required recipe (U63). The DOM
-  stub's `textContent` returns the tag-stripped text (the win banner
-  renders output icons via `innerHTML`) and its parsed innerHTML
+  "next" chip on the work's next required recipe (U63), the
+  **generator Max** — up to ten levels in one click while affordable
+  (U64), the **total play time** — permanent on the works row (U65),
+  and the **fast-mode tooltip** — the toggle explains the mode (U66).
+  The DOM stub's `textContent` returns the tag-stripped text (the win
+  banner renders output icons via `innerHTML`) and its parsed innerHTML
   children carry a `parent` link for row-level checks.
 - **Simulation**: a greedy player solves on a per-radius interval that
   **shrinks with inscription** (`base * 0.95^etched clues`, floor 30 s),

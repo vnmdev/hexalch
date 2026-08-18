@@ -596,10 +596,10 @@ function runUnitChecks() {
     check("U25d flash cleared when unaffordable again", btn.disabled === true && !btn.classList.contains("just-affordable"));
     gs.works = 7;
     G.updateUI();
-    check("U25e works counter renders", env.doc.getElementById("works-count").textContent === "Works completed: 7");
+    check("U25e works counter renders", env.doc.getElementById("works-count").textContent.startsWith("Works completed: 7"));
     for (let i = 0; i < G.cells.length; i++) if (G.solution[i] === 1) G.setCell(i, 1);
     G.reportWin();
-    check("U25f winning increments works", gs.works === 8 && env.doc.getElementById("works-count").textContent === "Works completed: 8");
+    check("U25f winning increments works", gs.works === 8 && env.doc.getElementById("works-count").textContent.startsWith("Works completed: 8"));
   }
   // U26: the clue-progress chip counts satisfied clues live.
   {
@@ -1155,6 +1155,30 @@ function runUnitChecks() {
     for (const t of G.TECHS) G.gameState.techTree[t.id] = true;
     G.updateUI();
     check("U63c the finished chain carries no marker", Object.keys(G.METAL_RECIPES).every(id => !row(id).includes("next")));
+  }
+  // U64: the generator Max button expands in one click, up to ten levels.
+  {
+    const { G, env } = launchGame(74);
+    const gs = G.gameState;
+    const genId = Object.keys(G.GENERATORS).find(id => G.GENERATORS[id].minRadius <= gs.upgrades.board_size.radius);
+    gs.resources.prima_materia.amount = 1e9;
+    env.byId.get(`btn-gen-${genId}-max`).click();
+    check("U64a max expands up to the ten-level cap in one click", gs.generators[genId] === 10);
+    gs.resources.prima_materia.amount = 1;
+    env.byId.get(`btn-gen-${genId}-max`).click();
+    check("U64b max refuses when nothing more is affordable", gs.generators[genId] === 10 && env.doc.getElementById("status").className === "status-err");
+  }
+  // U65: the works row carries the total play time.
+  {
+    const { G, env } = launchGame(75);
+    G.tick(5400);
+    G.updateUI();
+    check("U65a the works row carries the total play time", env.byId.get("works-count").textContent.includes("played 1h 30m"));
+  }
+  // U66: the fast-mode control explains what it does.
+  {
+    const html = readFileSync(new URL("./index.html", import.meta.url), "utf8");
+    check("U66a fast mode explains itself", /id="speed-mode"[^>]*title="Fast mode — paint only the greens/.test(html));
   }
 }
 
