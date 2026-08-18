@@ -150,6 +150,12 @@ transmutation engine**. This section is the reference for that layer.
   full `updateUI()` rebuild runs only on structural changes (buy,
   transmute, new puzzle, inscription, radius). Buttons flip enabled the
   second passive income crosses a cost (U18, U23).
+- **Clue guide** (`#clue-guide`, in the Crucible): lists the clue
+  languages currently in play — one row per unlocked form with its glyph
+  and plain meaning (wording shared with the board tooltips). A row
+  appears exactly when the form can appear (surround at R3, halo at R4,
+  spear at R5, flow at inscription 3, mirror at inscription 6), so the
+  player learns each language the moment it matters (U24).
 - Save slot `greatwork_v4` (bumped when the economy shape changed);
   `loadProgress` merges every pool with defaults and starts a fresh
   puzzle at the saved radius + inscription level.
@@ -169,14 +175,13 @@ transmutation engine**. This section is the reference for that layer.
   mechanics** — clue etching, pre-inscription, flow/mirror unlocks,
   deducibility (U17) — **real-time button flips** (U18), and **flow/
   spear badges** — remaining count, paint tracking, forced-move outline
-  (U20) — plus the **fast-mode last-tile highlight** for one-unknown
   line/arrow clues (U21) — and **coloured glyphs**: real colours, no
-  currentColor, per-icon gradient ids, url(#) refs resolving locally (U22).
-  The DOM stub's `textContent` is DOM-faithful: an `innerHTML` set makes
-  `textContent` return the tag-stripped text (the win banner now renders
-  output icons via `innerHTML`). **In-place refresh** — amounts and
-  button states update without a rebuild; node identity is preserved
-  across a tick and only a full `updateUI()` rebuilds (U23).
+  currentColor, per-icon gradient ids, url(#) refs resolving locally (U22),
+  **in-place refresh** (amounts/buttons update without a rebuild; node
+  identity preserved across a tick, U23), and the **clue guide** tracking
+  unlocked forms (U24). The DOM stub's `textContent` is DOM-faithful: an
+  `innerHTML` set makes `textContent` return the tag-stripped text (the
+  win banner renders output icons via `innerHTML`).
 - **Simulation**: a greedy player solves on a per-radius interval that
   **shrinks with inscription** (`base * 0.95^etched clues`, floor 30 s),
   upgrades the crucible, **buys inscription whenever affordable**, buys

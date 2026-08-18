@@ -340,6 +340,11 @@
       box-shadow: 0 0 10px var(--accent-glow);
     }
 
+    /* Clue guide (the puzzle language, as unlocked) */
+    .clue-guide { margin-top: 16px; width: 100%; display: flex; flex-direction: column; gap: 3px; }
+    .clue-line { display: flex; align-items: baseline; gap: 8px; font-size: 11px; color: #999; }
+    .clue-glyph { width: 28px; text-align: center; color: var(--accent); font-size: 13px; flex: 0 0 auto; }
+
   </style>
 </head>
 <body>
@@ -395,6 +400,7 @@
           <button id="tRed" class="tool-btn" type="button">Red</button>
           <button id="tErase" class="tool-btn" type="button">Erase</button>
         </div>
+        <div id="clue-guide" class="clue-guide"></div>
       </div>
     </section>
 
@@ -427,6 +433,16 @@
   const FLOW_GLYPHS = ["→", "↗", "↖", "←", "↙", "↘"];
   const MAX_RADIUS = 5;
   const CLUE_BY_RADIUS = [CLUE.SURROUND, CLUE.HALO, CLUE.SPEAR, CLUE.FLOW, CLUE.MIRROR];
+
+  // Clue languages for the in-game guide (board tooltips use the same
+  // wording); a guide row appears exactly when the form can appear.
+  const CLUE_INFO = {
+    surround: { glyph: "⬡", name: "Surround", blurb: "greens in this cell and its neighbours" },
+    halo: { glyph: "○", name: "Halo", blurb: "green neighbours; excludes this cell" },
+    spear: { glyph: "╲—╱", name: "Spear", blurb: "greens across this complete axis" },
+    flow: { glyph: "→", name: "Flow", blurb: "greens ahead in the arrow's direction" },
+    mirror: { glyph: "◇", name: "Mirror", blurb: "greens around the reflected cell across the centre" },
+  };
   // Elements the crucible transmutes at each radius. The crucible caps at
   // radius five, where all four classical elements flow at once; further
   // progression comes from inscribing clues, not from a bigger board.
@@ -637,7 +653,7 @@
   let state = [], poly = [], txt = [], mirrorMarkers = [], mirrorGovernors = [], clueBadges = [];
   let nextPuzzleTimer = null;
   let highlightedScope = [], hoveredCell = -1, dragging = false, dragApply = null, tool = "green";
-  let R, W, H, ox, oy, boardEl, boardWrapEl, winBannerEl, winSubEl, opusBannerEl, recipeEl, resListEl, upgradeListEl, techListEl, transmuteListEl, statusEl;
+  let R, W, H, ox, oy, boardEl, boardWrapEl, winBannerEl, winSubEl, opusBannerEl, recipeEl, resListEl, upgradeListEl, techListEl, transmuteListEl, statusEl, guideEl;
 
   boardEl = document.getElementById("board");
   boardWrapEl = document.querySelector(".board-wrap");
@@ -650,6 +666,7 @@
   techListEl = document.getElementById("tech-tree-list");
   transmuteListEl = document.getElementById("transmute-list");
   statusEl = document.getElementById("status");
+  guideEl = document.getElementById("clue-guide");
 
   // ---------- Core Engine ----------
 
@@ -1333,6 +1350,7 @@
     renderUpgrades();
     renderTechTree();
     renderTransmutation();
+    renderClueGuide();
     updateLocationUI();
   }
 
@@ -1350,6 +1368,24 @@
   function registerButton(el, cost) {
     el.disabled = !canAfford(cost);
     buyButtons.push({ el, cost });
+  }
+
+  function renderClueGuide() {
+    guideEl.innerHTML = "";
+    const kinds = clueKinds(gameState.upgrades.board_size.radius, gameState.upgrades.inscription.level);
+    for (const kind of kinds) {
+      const info = CLUE_INFO[kind];
+      const line = document.createElement("div");
+      line.className = "clue-line";
+      const glyph = document.createElement("span");
+      glyph.className = "clue-glyph";
+      glyph.textContent = info.glyph;
+      const text = document.createElement("span");
+      text.textContent = `${info.name}: ${info.blurb}`;
+      line.appendChild(glyph);
+      line.appendChild(text);
+      guideEl.appendChild(line);
+    }
   }
 
   function checkAndSetLocation() {

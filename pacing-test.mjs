@@ -547,6 +547,22 @@ function runUnitChecks() {
     G.updateUI();
     check("U23e full render rebuilds nodes", env.doc.getElementById("btn-gen-extractor") !== btnRef);
   }
+  // U24: the clue guide lists exactly the unlocked clue forms.
+  {
+    const { G, env } = launchGame(30);
+    const gs = G.gameState;
+    const guide = env.doc.getElementById("clue-guide");
+    const names = () => guide.children.map(l => l.children[1].textContent);
+    G.updateUI();
+    check("U24a fresh game shows only surround", guide.children.length === 1 && names()[0].startsWith("Surround"));
+    gs.upgrades.board_size.radius = 5; gs.currentPuzzle.radius = 5;
+    gs.upgrades.inscription.level = 3;
+    G.updateUI();
+    check("U24b flow joins the guide at inscription 3", guide.children.length === 4 && names().some(t => t.startsWith("Flow")));
+    gs.upgrades.inscription.level = 6;
+    G.updateUI();
+    check("U24c all five forms at R5 + inscription 6", guide.children.length === 5 && names().some(t => t.startsWith("Mirror")));
+  }
 }
 
 // ---------- Pacing simulation ----------
