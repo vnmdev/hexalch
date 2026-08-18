@@ -94,13 +94,15 @@ try {
     speedMode: gameState.settings.speedMode,
     speedChecked: document.getElementById("speed-mode").checked,
     redDisabled: document.getElementById("tRed").disabled,
-    guideLines: document.querySelectorAll("#clue-guide .clue-line").length
+    guideLines: document.querySelectorAll("#clue-guide .clue-line").length,
+    clueProgress: document.getElementById("clue-progress").textContent
   })`);
   assert(initial.ready === "complete", "page did not finish loading");
   assert(initial.polygons === 37, `radius-three board should have 37 cells, got ${initial.polygons}`);
   assert(initial.location === "The Leaden Chamber", `unexpected initial location: ${initial.location}`);
   assert(initial.speedMode && initial.speedChecked && initial.redDisabled, "Fast Mode is not the synchronized default");
   assert(initial.guideLines === 1, `fresh game guide should list one clue form, got ${initial.guideLines}`);
+  assert(/^\d+\/\d+$/.test(initial.clueProgress), `clue progress chip malformed: ${JSON.stringify(initial.clueProgress)}`);
 
   const icons = await evaluate(`({
     ledger: document.querySelectorAll("#resource-list .icon svg").length,
@@ -190,6 +192,7 @@ try {
       location: gameState.currentLocationId,
       clueKinds: [...new Set(clues.filter(Boolean).map(clue => clue.kind))],
       guideLines: document.querySelectorAll("#clue-guide .clue-line").length,
+      clueProgress: document.getElementById("clue-progress").textContent,
       hasUpgradeButton: Boolean(document.getElementById("btn-upgrade-board")),
       hasInscribeButton: Boolean(document.getElementById("btn-inscribe")),
     };
@@ -199,6 +202,7 @@ try {
   assert(finalBoard.location === "aetheric_vault", `final location did not unlock: ${finalBoard.location}`);
   assert(finalBoard.clueKinds.length === 5, `final board should use all five clue types: ${finalBoard.clueKinds.join(", ")}`);
   assert(finalBoard.guideLines === 5, `final game guide should list all five clue forms, got ${finalBoard.guideLines}`);
+  assert(/^\d+\/\d+$/.test(finalBoard.clueProgress), `clue progress chip malformed at cap: ${JSON.stringify(finalBoard.clueProgress)}`);
   assert(!finalBoard.hasUpgradeButton, "board upgrade remains available past the cap");
   assert(finalBoard.hasInscribeButton, "inscription should remain available at the cap");
   assert(finalBoard.elements.join(",") === "earth,water,air,fire,quintessence", "classical element roster is wrong");
