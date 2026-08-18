@@ -20,6 +20,11 @@ Flow and spear clues carry a **live badge** next to the glyph: `remaining = coun
 
 **Glyph icons** come from the provided sprite pack `assets/sprites/hex-alchemist-icons_4/` — the **`affinity/` coloured set** (the README reserves it for the metals + Stone tiers, which monochrome tinting cannot reproduce; `source/` is the currentColor web set, `godot/` white-for-tinting). The 16 used glyphs are inlined in `ICON_SVGS` so the game stays a single file. The six gradient glyphs (lead, iron, copper, silver, gold, philosophers-stone-iv) carry `id="g"` in the originals — inlining many copies into one document would make every `url(#g)` resolve to the FIRST gradient on the page, so ids are **namespaced per icon** (`g-<name>` + matching `url(#g-<name>)`). `ICON_GLOW` holds each glyph's glow colour; `.icon` applies `filter: drop-shadow(0 0 3px var(--glow))` — the web stand-in for the pack's pre-rasterised halo PNGs (7–10 KB each, not inlined). `iconHtml(id, size, label)` renders one with a native `title` tooltip. Mapping: prima materia→alkahest, the five elements→themselves, the five metals→themselves, nigredo→black-mercury, albedo→salt, citrinitas→sulfur, rubedo→philosophers-sulfur, Philosopher's Stone→philosophers-stone-iv (also the Magnum Opus banner icon, set in `celebrateMagnumOpus`, with a 16 px glow in the stone's own orange). Icons appear on ledger rows, transmutation rows, tech-tree rows, generator rows, the recipe line, the win-banner output, and the opus banner.
 
+The browser-tab favicon is the pack's **philosophers-stone-iv** glyph
+inlined as a data-URI SVG (dark rounded tile background, gradient
+preserved), with a matching `theme-color` meta for the page background —
+no extra file, single-file rule intact.
+
 ## Call chain
 ```
 startTier → generate → buildOne → trySolve → deduce → block / topology
