@@ -616,6 +616,24 @@ function runUnitChecks() {
     check("U28a reveal forfeits the yield", G.gameState.currentPuzzle.solved && G.gameState.works === before);
     check("U28b reveal states the cost", env.doc.getElementById("status").textContent.includes("no yield"));
   }
+  // U31: a paint updates the ledger in place — no rebuild, buttons flip
+  // the instant the amount crosses a cost.
+  {
+    const { G, env } = launchGame(36);
+    const gs = G.gameState;
+    G.updateUI();
+    const primaAmt = G.amountEls.find(a => a.id === "prima_materia").el;
+    const btn = env.doc.getElementById("btn-gen-extractor"); // cost 15
+    gs.resources.prima_materia.amount = 15;
+    G.updateDynamicUI();
+    check("U31a button affordable at exact cost", btn.disabled === false);
+    const solIdx = G.solution.findIndex(v => v === 1);
+    check("U31b board has a green to paint", solIdx >= 0);
+    G.setCell(solIdx, 1);
+    check("U31c paint updates the amount in place", primaAmt.textContent === "14");
+    check("U31d node identity survives a paint", G.amountEls.find(a => a.id === "prima_materia").el === primaAmt);
+    check("U31e button flips disabled immediately", btn.disabled === true);
+  }
 }
 
 // ---------- Pacing simulation ----------
