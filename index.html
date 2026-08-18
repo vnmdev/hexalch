@@ -410,20 +410,20 @@
           <span id="solve-time" class="clue-progress" title="time on this board">0m 0s</span>
         </div>
         <div class="controls">
-          <button id="new-board" title="Forge a fresh board — paint on an unsolved board is refunded">New Puzzle</button>
-          <button id="check-board" title="Check the board: wrong greens get flagged">Check</button>
-          <button id="reset-board" title="Clear the board — painted cells are refunded">Reset</button>
+          <button id="new-board" title="Forge a fresh board — paint on an unsolved board is refunded · press n">New Puzzle</button>
+          <button id="check-board" title="Check the board: wrong greens get flagged · press c">Check</button>
+          <button id="reset-board" title="Clear the board — painted cells are refunded · press x">Reset</button>
           <button id="solve-board" title="See the solution — this board yields nothing">Reveal</button>
         </div>
         <div class="controls" style="margin-top:20px;">
           <label style="font-size:12px; color:#aaa; display:flex; align-items:center; gap:5px; cursor:pointer;">
-            <input type="checkbox" id="speed-mode" checked> Fast Mode
+            <input type="checkbox" id="speed-mode" checked title="Toggle fast mode · press f"> Fast Mode
           </label>
         </div>
         <div class="controls" id="tool-controls">
-          <button id="tGreen" class="tool-btn on" type="button">Green</button>
-          <button id="tRed" class="tool-btn" type="button">Red</button>
-          <button id="tErase" class="tool-btn" type="button">Erase</button>
+          <button id="tGreen" class="tool-btn on" type="button" title="Green paint · press 1">Green</button>
+          <button id="tRed" class="tool-btn" type="button" title="Red paint · press 2">Red</button>
+          <button id="tErase" class="tool-btn" type="button" title="Erase paint · press 3">Erase</button>
         </div>
         <div id="clue-guide" class="clue-guide"></div>
       </div>
@@ -1463,12 +1463,12 @@
     }
     // The New Puzzle tooltip states exactly what a click would refund.
     if (gameState.currentPuzzle.solved) {
-      newBoardBtn.title = "Forge a fresh board";
+      newBoardBtn.title = "Forge a fresh board · press n";
     } else {
       const fed = state.filter(v => v === 1).length;
       newBoardBtn.title = fed > 0
-        ? `Forge a fresh board — ${fed} prima refunded`
-        : "Forge a fresh board — paint on an unsolved board is refunded";
+        ? `Forge a fresh board — ${fed} prima refunded · press n`
+        : "Forge a fresh board — paint on an unsolved board is refunded · press n";
     }
     renderTime();
   }
@@ -1865,7 +1865,8 @@
   // ---------- Initialization ----------
 
   document.getElementById("new-board").onclick = startPuzzle;
-  document.getElementById("check-board").onclick = () => {
+
+  function checkBoard() {
     if(boardComplete()) { if(!gameState.currentPuzzle.solved) reportWin(); return; }
     let bad=0;
     for(let i=0;i<cells.length;i++){
@@ -1873,14 +1874,30 @@
       if(state[i]===1 && solution[i]===0){ poly[i].classList.add("bad"); bad++; }
     }
     setStatus(bad? `${bad} mistakes detected.` : "No mistakes so far.", bad?"err":"info");
-  };
-  document.getElementById("reset-board").onclick = () => {
+  }
+  document.getElementById("check-board").onclick = checkBoard;
+
+  function resetBoard() {
     if(gameState.currentPuzzle.solved) return;
     const fed = state.filter(v => v === 1).length;
     state = cells.map(()=>0);
     if (fed > 0) gameState.resources.prima_materia.amount += fed;
     renderCell(); renderResources(); setStatus(fed > 0 ? `Board cleared — ${fed} prima refunded.` : "Board cleared.", "info");
-  };
+  }
+  document.getElementById("reset-board").onclick = resetBoard;
+
+  // Keyboard shortcuts for the board controls (desktop convenience).
+  window.addEventListener("keydown", e => {
+    if (e.target && e.target.tagName && /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return;
+    const k = (e.key || "").toLowerCase();
+    if (k === "1") setTool("green");
+    else if (k === "2") setTool("red");
+    else if (k === "3") setTool("erase");
+    else if (k === "n") startPuzzle();
+    else if (k === "c") checkBoard();
+    else if (k === "x") resetBoard();
+    else if (k === "f") { const cb = document.getElementById("speed-mode"); cb.checked = !cb.checked; cb.onchange({ target: cb }); }
+  });
   document.getElementById("solve-board").onclick = () => {
     for(let i=0;i<cells.length;i++) state[i]= solution[i]===1 ? 1 : (gameState.settings.speedMode ? 0 : 2);
     gameState.currentPuzzle.solved = true; renderCell();

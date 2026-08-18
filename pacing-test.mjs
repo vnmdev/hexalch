@@ -123,7 +123,7 @@ function mulberry32(seed) {
    const win = {
      _listeners: {},
      addEventListener(type, fn) { (this._listeners[type] ||= []).push(fn); },
-     fire(type) { for (const fn of this._listeners[type] || []) fn({}); },
+     fire(type, props = {}) { for (const fn of this._listeners[type] || []) fn({ target: this, preventDefault() {}, ...props }); },
    };
   const ls = {
     getItem: k => (store.has(k) ? store.get(k) : null),
@@ -855,7 +855,7 @@ function runUnitChecks() {
     const greens = [];
     for (let i = 0; i < G.cells.length; i++) if (G.solution[i] === 1) greens.push(i);
     G.setCell(greens[0], 1); G.setCell(greens[1], 1); G.updateDynamicUI();
-    check("U42b painted board states the exact refund", btn.title === "Forge a fresh board — 2 prima refunded");
+    check("U42b painted board states the exact refund", btn.title === "Forge a fresh board — 2 prima refunded · press n");
     env.doc.getElementById("reset-board").click();
     G.updateDynamicUI();
     check("U42c cleared board drops the count", btn.title.includes("unsolved board is refunded"));
@@ -879,6 +879,30 @@ function runUnitChecks() {
     const c = away(12 * 3600); // capped at 8 h
     const status = c.env.doc.getElementById("status").textContent;
     check("U43b cap is visible in the announcement", status.includes("8 h 0 m") && !status.includes("9 h"));
+  }
+  // U44: keyboard shortcuts drive the board controls.
+  {
+    const { G, env } = launchGame(56);
+    const fire = k => env.win.fire("keydown", { key: k });
+    fire("f"); // fast mode off so the red tool is reachable
+    fire("2");
+    check("U44a key 2 selects the red tool", env.byId.get("tRed").classList.contains("on"));
+    fire("3");
+    check("U44b key 3 selects the erase tool", env.byId.get("tErase").classList.contains("on"));
+    fire("1");
+    check("U44c key 1 selects the green tool", env.byId.get("tGreen").classList.contains("on"));
+    const solBefore = G.solution.join(",");
+    fire("n");
+    check("U44d n forges a new board", G.solution.join(",") !== solBefore);
+    fire("c");
+    check("U44e c checks the board", env.doc.getElementById("status").textContent === "No mistakes so far.");
+    const prima = G.gameState.resources.prima_materia.amount;
+    for (let i = 0; i < G.cells.length; i++) if (G.solution[i] === 1) G.setCell(i, 1);
+    fire("x");
+    check("U44f x resets and refunds", G.state.every(v => v === 0) && G.gameState.resources.prima_materia.amount === prima);
+    const fast = G.gameState.settings.speedMode;
+    fire("f");
+    check("U44g f toggles fast mode", G.gameState.settings.speedMode === !fast && env.byId.get("speed-mode").checked === !fast);
   }
 }
 
