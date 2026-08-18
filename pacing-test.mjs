@@ -634,6 +634,24 @@ function runUnitChecks() {
     check("U31d node identity survives a paint", G.amountEls.find(a => a.id === "prima_materia").el === primaAmt);
     check("U31e button flips disabled immediately", btn.disabled === true);
   }
+  // U30: a location unlock announces itself exactly once, at the change.
+  {
+    const { G, env } = launchGame(35);
+    const gs = G.gameState;
+    const status = () => env.doc.getElementById("status").textContent;
+    gs.upgrades.board_size.radius = 4; gs.currentPuzzle.radius = 4;
+    G.updateUI();
+    check("U30a location advances to the forge", gs.currentLocationId === "martial_forge");
+    check("U30b unlock is announced", status().includes("Martial Forge"));
+    gs.resources.prima_materia.amount = 0;
+    G.buyGenerator("extractor");
+    G.updateUI();
+    check("U30c no re-announce while unchanged", status().includes("Not enough Prima Materia"));
+    gs.upgrades.board_size.radius = 5; gs.currentPuzzle.radius = 5;
+    gs.upgrades.inscription.level = 3;
+    G.updateUI();
+    check("U30d inscription gate opens the temple", gs.currentLocationId === "solar_temple" && status().includes("Solar Temple"));
+  }
 }
 
 // ---------- Pacing simulation ----------
