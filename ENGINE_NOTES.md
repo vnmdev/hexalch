@@ -181,7 +181,9 @@ transmutation engine**. This section is the reference for that layer.
   generator's attempt count — +1 per two completed works, capped at
   +10 — so each further work yields a thinner, harder board while the
   pre-Stone pace stays untouched (the harness player paints the
-  solution, so every pacing milestone holds) (U45).
+  solution, so every pre-Stone milestone holds — and the sim now runs
+  the endless phase to the cap, so the deepening itself is proven
+  stall-proof, not just generated) (U45).
 - **Upgrade UI**: the Alembic's upgrades section shows **every option
   at once** — crucible expansion, inscription, and all five generator
   rows (locked rows visible with their unlock radius) — plus a
@@ -319,6 +321,9 @@ transmutation engine**. This section is the reference for that layer.
   levels), detects stalls (no progress in 10 min), and asserts: no
   soft-locks, stone within 2 h, first iron within 10 m, first gold
   within 90 m, crucible fully expanded, inscription ≥ level 2 by the
-  stone (the entanglement actually fires). Verified: 10/10 runs finish,
-  stone max 82 m, averages ~81 m 35 s.
+  stone (the entanglement actually fires), and **≥ 3 boards after the
+  stone** — the run no longer stops at the Stone, so the endless
+  deepening is exercised (in practice ~65 boards per run, works ~150,
+  attempts at the cap). Verified: 10/10 runs finish, stone max 82 m,
+  averages ~81 m 35 s.
 - **Run:** `bun run pacing-test.mjs [--runs N]`.
