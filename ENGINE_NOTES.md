@@ -162,7 +162,8 @@ transmutation engine**. This section is the reference for that layer.
   elements. Forging the Stone raises the **Magnum Opus** gold overlay
   (`celebrateMagnumOpus`) with a *Continue the Work* button into endless
   mode; the banner reports the span of the work — total play time
-  (`totalSeconds`, counted in `tick`) and completed boards (U36). A
+  (`totalSeconds`, counted in `tick`) and completed boards — plus the
+  best solve time when one exists (U36, U51). A
   **locked** row (prerequisites unforged) shows "Requires X" instead of
   a cost, so the chain reads as a roadmap (U41).
 - **Endless deepening**: after the Stone, `startPuzzle` raises the
@@ -283,7 +284,9 @@ transmutation engine**. This section is the reference for that layer.
   (U42), and the **offline duration** — the announcement states how long
   the generators ran, cap included (U43), and the **keyboard shortcuts**
   — keys drive the tools and the board buttons (U44), and the **endless
-  deepening** — post-stone boards thin as the works grow (U45). The
+  deepening** — post-stone boards thin as the works grow (U45), and the
+  **opus best time** — the banner reports the fastest solve when one
+  exists (U51). The
   DOM stub's `textContent` returns the tag-stripped text (the win
   banner renders output icons via `innerHTML`).
 - **Simulation**: a greedy player solves on a per-radius interval that

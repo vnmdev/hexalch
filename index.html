@@ -1413,7 +1413,8 @@
       opusIconEl.style["--glow"] = ICON_GLOW["philosophers-stone-iv"];
       opusIconEl.innerHTML = ICON_SVGS["philosophers-stone-iv"];
     }
-    document.getElementById("opus-sub").textContent = `The Philosopher's Stone is forged. ${fmtTime(totalSeconds)} in the work, ${gameState.works} boards completed. The work endures.`;
+    const bestNote = gameState.bestSeconds > 0 ? ` · best ${fmtTime(gameState.bestSeconds)}` : "";
+    document.getElementById("opus-sub").textContent = `The Philosopher's Stone is forged. ${fmtTime(totalSeconds)} in the work, ${gameState.works} boards completed${bestNote}. The work endures.`;
     opusBannerEl.classList.add("show");
     boardWrapEl.classList.add("success");
   }
