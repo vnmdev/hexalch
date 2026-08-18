@@ -407,6 +407,7 @@
         <div class="controls" style="margin-top:8px;">
           <span id="clue-progress" class="clue-progress" title="clues satisfied / total"></span>
           <span id="move-count" class="clue-progress" title="state changes made on this board">0 moves</span>
+          <span id="solve-time" class="clue-progress" title="time on this board">0m 0s</span>
         </div>
         <div class="controls">
           <button id="new-board">New Puzzle</button>
@@ -677,8 +678,8 @@
   let cells = [], idxOf = new Map(), block = [], solution = [], clues = [];
   let state = [], poly = [], txt = [], mirrorMarkers = [], mirrorGovernors = [], clueBadges = [];
   let nextPuzzleTimer = null;
-  let highlightedScope = [], hoveredCell = -1, dragging = false, dragApply = null, tool = "green", puzzleMoves = 0;
-  let R, W, H, ox, oy, boardEl, boardWrapEl, winBannerEl, winSubEl, opusBannerEl, recipeEl, resListEl, upgradeListEl, techListEl, transmuteListEl, statusEl, guideEl, worksEl, clueProgressEl, moveCountEl;
+  let highlightedScope = [], hoveredCell = -1, dragging = false, dragApply = null, tool = "green", puzzleMoves = 0, puzzleSeconds = 0;
+  let R, W, H, ox, oy, boardEl, boardWrapEl, winBannerEl, winSubEl, opusBannerEl, recipeEl, resListEl, upgradeListEl, techListEl, transmuteListEl, statusEl, guideEl, worksEl, clueProgressEl, moveCountEl, solveTimeEl;
 
   boardEl = document.getElementById("board");
   boardWrapEl = document.querySelector(".board-wrap");
@@ -695,8 +696,12 @@
   worksEl = document.getElementById("works-count");
   clueProgressEl = document.getElementById("clue-progress");
   moveCountEl = document.getElementById("move-count");
+  solveTimeEl = document.getElementById("solve-time");
 
   function renderMoves() { moveCountEl.textContent = puzzleMoves + " moves"; }
+
+  function fmtTime(s) { const m = Math.floor(s / 60), r = Math.floor(s % 60); return `${m}m ${r}s`; }
+  function renderTime() { solveTimeEl.textContent = fmtTime(puzzleSeconds); }
 
   // ---------- Core Engine ----------
 
@@ -1161,7 +1166,7 @@
       addInventory(id, per);
       outputs.push({ id, text: `${per} ${gameState.elements[id].sym} ${gameState.elements[id].name.toLowerCase()}` });
     }
-    winSubEl.innerHTML = `${outputs.map(o => `${iconHtml(o.id, 14)}${o.text}`).join("  ")}  ·  ${greens} prima fed · ${puzzleMoves} moves`;
+    winSubEl.innerHTML = `${outputs.map(o => `${iconHtml(o.id, 14)}${o.text}`).join("  ")}  ·  ${greens} prima fed · ${puzzleMoves} moves · ${fmtTime(puzzleSeconds)}`;
     setStatus(`Transmutation complete: +${outputs.map(o => o.text).join(" +")}`, "win");
 
     updateUI();
@@ -1218,6 +1223,7 @@
   // Applies passive income. Called by the in-browser loop and driven
   // directly by the pacing harness.
   function tick(seconds) {
+    if (!gameState.currentPuzzle.solved) puzzleSeconds += seconds;
     addInventory("prima_materia", BASE_GATHER * seconds);
     for (const id of Object.keys(GENERATORS)) {
       const rate = generatorRate(id);
@@ -1256,7 +1262,7 @@
 
     generate(p.radius, p.density, p.attempts, kinds, insLevel * INSCRIPTION.step);
     state = cells.map(() => 0);
-    puzzleMoves = 0; renderMoves();
+    puzzleMoves = 0; renderMoves(); puzzleSeconds = 0; renderTime();
     buildBoard();
 
     const greens = solution.filter(v => v === 1).length;
@@ -1283,7 +1289,7 @@
     p.removedTotal = w.removedTotal || 0;
     p.inscribed = w.inscribed || 0;
     p.solved = !!w.solved;
-    puzzleMoves = Math.max(0, Math.floor(Number(w.moves) || 0)); renderMoves();
+    puzzleMoves = Math.max(0, Math.floor(Number(w.moves) || 0)); renderMoves(); puzzleSeconds = 0; renderTime();
     buildBoard();
     for (let i = 0; i < cells.length; i++) if (state[i] !== 0) paintCell(i);
     const greens = solution.filter(v => v === 1).length;
@@ -1438,6 +1444,7 @@
       else if (!afford && !b.el.disabled) b.el.classList.remove("just-affordable");
       b.el.disabled = !afford;
     }
+    renderTime();
   }
 
   function registerButton(el, cost) {
@@ -1821,7 +1828,7 @@
     const fed = state.filter(v => v === 1).length;
     state = cells.map(()=>0);
     if (fed > 0) gameState.resources.prima_materia.amount += fed;
-    renderCell(); renderResources(); setStatus("Board cleared.", "info");
+    renderCell(); renderResources(); setStatus(fed > 0 ? `Board cleared — ${fed} prima refunded.` : "Board cleared.", "info");
   };
   document.getElementById("solve-board").onclick = () => {
     for(let i=0;i<cells.length;i++) state[i]= solution[i]===1 ? 1 : (gameState.settings.speedMode ? 0 : 2);

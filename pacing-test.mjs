@@ -155,6 +155,7 @@ const HOOK = `
   get state() { return state; },
   get clues() { return clues; },
   get puzzleMoves() { return puzzleMoves; },
+  get puzzleSeconds() { return puzzleSeconds; },
   setCell, startPuzzle, reportWin, tick, updateUI, updateDynamicUI,
   get amountEls() { return amountEls; },
   get buyButtons() { return buyButtons; },
@@ -728,6 +729,23 @@ function runUnitChecks() {
     check("U34c move count survives a refresh", b.G.puzzleMoves === 2 && bChip.textContent === "2 moves");
     b.G.startPuzzle();
     check("U34d new puzzle resets the count", b.G.puzzleMoves === 0 && bChip.textContent === "0 moves");
+  }
+  // U35: the solve timer counts board time, freezes on solve, and is
+  // reported on the win banner.
+  {
+    const { G, env } = launchGame(43);
+    const chip = env.byId.get("solve-time");
+    check("U35a timer starts at zero", G.puzzleSeconds === 0 && chip.textContent === "0m 0s");
+    G.tick(42); G.updateDynamicUI();
+    check("U35b timer counts board time", G.puzzleSeconds === 42 && chip.textContent === "0m 42s");
+    G.tick(130); G.updateDynamicUI();
+    check("U35c timer formats minutes", G.puzzleSeconds === 172 && chip.textContent === "2m 52s");
+    for (let i = 0; i < G.cells.length; i++) if (G.solution[i] === 1) G.setCell(i, 1);
+    G.reportWin();
+    const banner = env.doc.querySelector("#win-banner .win-sub");
+    check("U35d win banner reports the solve time", /2m 52s/.test(banner.textContent));
+    G.tick(60);
+    check("U35e timer freezes after the solve", G.puzzleSeconds === 172);
   }
 }
 
