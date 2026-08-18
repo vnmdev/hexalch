@@ -341,16 +341,18 @@ function runUnitChecks() {
     a.G.buyGenerator("extractor");    // level 1
     a.G.buyInscription();             // inscription level 1
     gs.resources.prima_materia.amount = 5000;
+    gs.works = 5;
     a.G.transmute("metal", "lead");   // first metal
     a.G.saveProgress();
     const b = launchGame(14, store);
     const g2 = b.G.gameState;
     check("U13a radius restored", g2.upgrades.board_size.radius === 4);
     check("U13b generator restored", g2.generators.extractor === 1);
-    check("U13c metal restored", g2.metals.lead.amount === 1);
+    check("U13c metal restored", g2.metals.lead.amount === 1, `got ${g2.metals.lead && g2.metals.lead.amount}`);
     check("U13d inscription restored", g2.upgrades.inscription.level === 1);
     check("U13e loaded puzzle starts pre-inscribed",
       g2.currentPuzzle.inscribed === Math.min(3, g2.currentPuzzle.removedTotal));
+    check("U13f works counter restored", g2.works === 5);
   }
   // U14: the Check button flags mistakes and accepts a correct board.
   {
@@ -562,6 +564,30 @@ function runUnitChecks() {
     gs.upgrades.inscription.level = 6;
     G.updateUI();
     check("U24c all five forms at R5 + inscription 6", guide.children.length === 5 && names().some(t => t.startsWith("Mirror")));
+  }
+  // U25: affordable buttons flash in place; the works counter renders and
+  // increments on a win (and persists via save/load).
+  {
+    const { G, env } = launchGame(31);
+    const gs = G.gameState;
+    G.updateUI();
+    const btn = env.doc.getElementById("btn-gen-extractor");
+    check("U25a fresh render has no flash", !btn.classList.contains("just-affordable"));
+    gs.resources.prima_materia.amount = 10;
+    G.updateDynamicUI();
+    check("U25b unaffordable disables in place", btn.disabled === true);
+    gs.resources.prima_materia.amount = 9999;
+    G.updateDynamicUI();
+    check("U25c affordable transition flashes in place", btn.disabled === false && btn.classList.contains("just-affordable"));
+    gs.resources.prima_materia.amount = 3;
+    G.updateDynamicUI();
+    check("U25d flash cleared when unaffordable again", btn.disabled === true && !btn.classList.contains("just-affordable"));
+    gs.works = 7;
+    G.updateUI();
+    check("U25e works counter renders", env.doc.getElementById("works-count").textContent === "Works completed: 7");
+    for (let i = 0; i < G.cells.length; i++) if (G.solution[i] === 1) G.setCell(i, 1);
+    G.reportWin();
+    check("U25f winning increments works", gs.works === 8 && env.doc.getElementById("works-count").textContent === "Works completed: 8");
   }
 }
 
