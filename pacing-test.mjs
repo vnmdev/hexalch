@@ -834,6 +834,18 @@ function runUnitChecks() {
     const sur2 = countOf(G.CLUE.SURROUND);
     check("U40b counts track a new board", lineFor("Surround").children[1].textContent.includes(`${sur2} on this board`));
   }
+  // U41: locked tech-tree rows name the prerequisite they wait on.
+  {
+    const { G, env } = launchGame(52);
+    const gs = G.gameState;
+    const tree = env.doc.getElementById("tech-tree-list");
+    const row = name => [...tree.children].find(d => d.textContent.includes(name));
+    check("U41a locked row names its requirement", row("Albedo").textContent.includes("Requires Nigredo"));
+    check("U41b available row has no requirement note", !row("Nigredo").textContent.includes("Requires"));
+    gs.metals.lead.amount = 100; gs.elements.earth.amount = 100;
+    G.buyTech("nigredo");
+    check("U41c note clears when the prereq is forged", !row("Albedo").textContent.includes("Requires"));
+  }
 }
 
 // ---------- Pacing simulation ----------
