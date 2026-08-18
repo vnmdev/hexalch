@@ -940,6 +940,27 @@ function runUnitChecks() {
     const raw = JSON.parse(env.ls.getItem("greatwork_v4"));
     check("U49c the tutored flag persists in the save", raw.tutored === true);
   }
+  // U48: Z undoes the last stroke and reverses the feed exactly.
+  {
+    const { G, env } = launchGame(58);
+    const prima0 = G.gameState.resources.prima_materia.amount;
+    const greens = [];
+    for (let i = 0; i < G.cells.length; i++) if (G.solution[i] === 1) greens.push(i);
+    G.setCell(greens[0], 1);
+    check("U48a paint feeds a prima", G.gameState.resources.prima_materia.amount === prima0 - 1);
+    env.win.fire("keydown", { key: "z" });
+    check("U48b undo reverts the paint and refunds", G.state[greens[0]] === 0 && G.gameState.resources.prima_materia.amount === prima0);
+    G.setCell(greens[0], 1);
+    G.setCell(greens[0], 0);
+    env.win.fire("keydown", { key: "z" });
+    check("U48c undo reverts the erase and re-feeds", G.state[greens[0]] === 1 && G.gameState.resources.prima_materia.amount === prima0 - 1);
+    env.win.fire("keydown", { key: "z" });
+    check("U48d undo reverts the original paint", G.state[greens[0]] === 0 && G.gameState.resources.prima_materia.amount === prima0);
+    G.setCell(greens[0], 1);
+    G.startPuzzle();
+    env.win.fire("keydown", { key: "z" });
+    check("U48e a new board clears the history", G.state.every(v => v === 0) && env.doc.getElementById("status").textContent === "Nothing to undo.");
+  }
 }
 
 // ---------- Pacing simulation ----------

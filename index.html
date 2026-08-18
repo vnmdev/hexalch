@@ -691,6 +691,7 @@
   let cells = [], idxOf = new Map(), block = [], solution = [], clues = [];
   let state = [], poly = [], txt = [], mirrorMarkers = [], mirrorGovernors = [], clueBadges = [];
   let nextPuzzleTimer = null;
+  let undoStack = [];
   let highlightedScope = [], hoveredCell = -1, dragging = false, dragApply = null, tool = "green", puzzleMoves = 0, puzzleSeconds = 0, totalSeconds = 0, offlineMessage = null;
   let R, W, H, ox, oy, boardEl, boardWrapEl, winBannerEl, winSubEl, opusBannerEl, recipeEl, resListEl, upgradeListEl, techListEl, transmuteListEl, statusEl, guideEl, worksEl, clueProgressEl, moveCountEl, solveTimeEl, newBoardBtn;
 
@@ -1100,12 +1101,41 @@
       gameState.resources.prima_materia.amount += 1;
     }
     if (state[i] !== value) {
+      undoStack.push({ i, from: state[i], to: value });
+      if (undoStack.length > 50) undoStack.shift();
       puzzleMoves++;
       renderMoves();
       state[i] = value;
       paintCell(i);
       updateFades();
     }
+    updateDynamicUI();
+    return true;
+  }
+
+  // Z takes back the last stroke: the cell returns to its previous state
+  // and the feed is reversed exactly — undoing a paint refunds a prima,
+  // undoing an erase re-feeds one. The re-feed honours the same guard as
+  // painting: with no prima, the stroke stays in the history.
+  function undoPaint() {
+    if (gameState.currentPuzzle.solved) { setStatus("The board is complete.", "info"); return false; }
+    const item = undoStack.pop();
+    if (!item) { setStatus("Nothing to undo.", "info"); return false; }
+    if (item.to === 1 && item.from !== 1) {
+      gameState.resources.prima_materia.amount += 1;
+    } else if (item.from === 1 && item.to !== 1) {
+      if (gameState.resources.prima_materia.amount < 1) {
+        undoStack.push(item);
+        setStatus("Cannot undo — no prima to re-feed that cell.", "err");
+        return false;
+      }
+      gameState.resources.prima_materia.amount -= 1;
+    }
+    puzzleMoves++;
+    renderMoves();
+    state[item.i] = item.from;
+    paintCell(item.i);
+    updateFades();
     updateDynamicUI();
     return true;
   }
@@ -1293,6 +1323,7 @@
     generate(p.radius, p.density, p.attempts, kinds, insLevel * INSCRIPTION.step);
     const fed = wasSolved ? 0 : state.filter(v => v === 1).length;
     state = cells.map(() => 0);
+    undoStack.length = 0;
     if (fed > 0) gameState.resources.prima_materia.amount += fed;
     puzzleMoves = 0; renderMoves(); puzzleSeconds = 0; renderTime();
     buildBoard();
@@ -1321,6 +1352,7 @@
     buildTopology(p.radius);
     solution = w.solution.slice();
     state = w.state.slice();
+    undoStack.length = 0;
     clues = w.clues.map(c => (c ? { count: c.count, kind: c.kind, axis: c.axis, cells: c.cells.slice() } : null));
     p.removedFull = (w.removedFull || []).map(rf => ({ idx: rf.idx, clue: rf.clue }));
     p.removedTotal = w.removedTotal || 0;
@@ -1904,6 +1936,7 @@
     if(gameState.currentPuzzle.solved) return;
     const fed = state.filter(v => v === 1).length;
     state = cells.map(()=>0);
+    undoStack.length = 0;
     if (fed > 0) gameState.resources.prima_materia.amount += fed;
     renderCell(); renderResources(); setStatus(fed > 0 ? `Board cleared — ${fed} prima refunded.` : "Board cleared.", "info");
   }
@@ -1919,10 +1952,12 @@
     else if (k === "n") startPuzzle();
     else if (k === "c") checkBoard();
     else if (k === "x") resetBoard();
+    else if (k === "z") undoPaint();
     else if (k === "f") { const cb = document.getElementById("speed-mode"); cb.checked = !cb.checked; cb.onchange({ target: cb }); }
   });
   document.getElementById("solve-board").onclick = () => {
     for(let i=0;i<cells.length;i++) state[i]= solution[i]===1 ? 1 : (gameState.settings.speedMode ? 0 : 2);
+    undoStack.length = 0;
     gameState.currentPuzzle.solved = true; renderCell();
     setStatus("Solution revealed — no yield for this board. Forge a new puzzle to continue.", "info");
   };
@@ -1934,7 +1969,8 @@
   document.getElementById("speed-mode").onchange = (e) => {
     gameState.settings.speedMode = e.target.checked;
     if(gameState.settings.speedMode){ 
-      for(let i=0;i<cells.length;i++) if(state[i]===2) state[i]=0; 
+      for(let i=0;i<cells.length;i++) if(state[i]===2) state[i]=0;
+      undoStack.length = 0;
       setTool("green"); 
     }
     renderCell();

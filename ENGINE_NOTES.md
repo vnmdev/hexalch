@@ -109,6 +109,12 @@ transmutation engine**. This section is the reference for that layer.
 - Changing a fed cell back to empty, or **Reset**, **refunds** each fed
   cell 1:1 — the status line reports the refunded amount
   ("N prima refunded"), so the refund is visible, not silent.
+- **Undo (Z)**: takes back the last stroke — the cell reverts and the
+  feed reverses exactly (undoing a paint refunds the prima; undoing an
+  erase re-feeds it, refusing when no prima is available, so the
+  economy invariant holds). The history is capped at 50 strokes and
+  cleared by New Puzzle, Reset, Reveal, a WIP restore, and the
+  fast-mode red-clear (U48).
 - **New Puzzle** abandons the board the same way: paint on an
   **unsolved** board is refunded 1:1 when a fresh one is forged (U39).
   The button's tooltip states the exact refund live — "Forge a fresh
@@ -290,7 +296,8 @@ transmutation engine**. This section is the reference for that layer.
   deepening** — post-stone boards thin as the works grow (U45), and the
   **opus best time** — the banner reports the fastest solve when one
   exists (U51), and the **first-board intro** — one-time how-to line,
-  flag persisted with the save (U49). The DOM stub's `textContent`
+  flag persisted with the save (U49), and the **Z undo** — last stroke
+  reverted with exact feed reversal (U48). The DOM stub's `textContent`
   returns the tag-stripped text (the win
   banner renders output icons via `innerHTML`).
 - **Simulation**: a greedy player solves on a per-radius interval that
