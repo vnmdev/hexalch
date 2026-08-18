@@ -180,7 +180,10 @@ transmutation engine**. This section is the reference for that layer.
   and plain meaning (wording shared with the board tooltips). A row
   appears exactly when the form can appear (surround at R3, halo at R4,
   spear at R5, flow at inscription 3, mirror at inscription 6), so the
-  player learns each language the moment it matters (U24).
+  player learns each language the moment it matters (U24). Each row also
+  states how many clues of that form sit on the current board ("— N on
+  this board"), re-rendered whenever the board or inscription changes
+  (U40).
 - **Affordance flash**: when a buy button flips unaffordable→affordable
   between two ticks, `updateDynamicUI()` adds the `just-affordable` class
   (one-shot gold box-shadow pulse; removed when it goes unaffordable
@@ -249,8 +252,9 @@ transmutation engine**. This section is the reference for that layer.
   **offline generator progress** — idle yield credited after a real
   absence and announced (U37), the **best solve time** — recorded,
   shown in the works row, flagged on the banner (U38), and **abandon
-  refund** — New Puzzle refunds unsolved paint, never solved (U39).
-  The DOM stub's
+  refund** — New Puzzle refunds unsolved paint, never solved (U39), and
+  the **clue guide counts** — each row shows how many of its form are on
+  the board (U40). The DOM stub's
   `textContent` is DOM-faithful: an `innerHTML` set makes `textContent`
   return the tag-stripped text (the win banner renders output icons via
   `innerHTML`).

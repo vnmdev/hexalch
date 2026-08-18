@@ -1479,7 +1479,8 @@
       glyph.className = "clue-glyph";
       glyph.textContent = info.glyph;
       const text = document.createElement("span");
-      text.textContent = `${info.name}: ${info.blurb}`;
+      const onBoard = clues.filter(c => c && c.kind === kind).length;
+      text.textContent = `${info.name}: ${info.blurb}` + (onBoard > 0 ? ` — ${onBoard} on this board` : "");
       line.appendChild(glyph);
       line.appendChild(text);
       guideEl.appendChild(line);
