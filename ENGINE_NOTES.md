@@ -156,7 +156,10 @@ transmutation engine**. This section is the reference for that layer.
   survive and the inline glyph SVGs are not discarded every second). A
   full `updateUI()` rebuild runs only on structural changes (buy,
   transmute, new puzzle, inscription, radius). Buttons flip enabled the
-  second passive income crosses a cost (U18, U23).
+  second passive income crosses a cost (U18, U23). **Painting is
+  in-place too**: `setCell()` calls `updateDynamicUI()` (not a full
+  `renderResources()`), so a drag-paint never rebuilds the ledger —
+  amounts and button states refresh on the spot (U31).
 - **Clue guide** (`#clue-guide`, in the Crucible): lists the clue
   languages currently in play — one row per unlocked form with its glyph
   and plain meaning (wording shared with the board tooltips). A row
@@ -206,7 +209,8 @@ transmutation engine**. This section is the reference for that layer.
   line/arrow clues (U21) — and **coloured glyphs**: real colours, no
   currentColor, per-icon gradient ids, url(#) refs resolving locally (U22),
   **in-place refresh** (amounts/buttons update without a rebuild; node
-  identity preserved across a tick, U23), the **clue guide** tracking
+  identity preserved across a tick and across a paint, U23, U31), the
+  **clue guide** tracking
   unlocked forms (U24), the **affordance flash** + **works counter**
   (U25, and works restored on load, U13f), the **clue-progress chip**
   reading `0/N` fresh and `N/N` solved (U26), and the **goal hint +
