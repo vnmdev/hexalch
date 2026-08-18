@@ -309,6 +309,8 @@
     .status-win { color: var(--green); text-shadow: 0 0 5px var(--green); }
     .status-err { color: var(--red); }
     .status-info { color: #888; }
+    .save-io { width: 100%; height: 84px; margin-top: 8px; background: #0d0d10; color: #bbb; border: 1px solid var(--border); font: 11px 'Courier New', monospace; padding: 6px; box-sizing: border-box; white-space: pre; }
+    .next-chip { font-size: 10px; letter-spacing: 1px; color: var(--accent); border: 1px solid var(--accent); padding: 1px 6px; margin-left: 8px; border-radius: 8px; text-transform: uppercase; }
     #recipe { margin-top: 6px; font-size: 12px; height: 16px; text-align: center; letter-spacing: .5px; color: #9a8f7a; font-family: 'Courier New', Courier, monospace; }
 
     /* SVG Styles */
@@ -459,8 +461,15 @@
         <hr style="border:0; border-top:1px solid var(--border); margin:20px 0;">
         <div id="tech-tree-list"></div>
         <hr style="border:0; border-top:1px solid var(--border); margin:20px 0;">
-        <div style="text-align:right;">
+        <div style="display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap;">
           <button id="abandon-work" style="background:none; border:1px solid var(--border); color:#888; padding:6px 12px; font-size:12px; cursor:pointer;" title="Delete the save and start the work over from a cold crucible">Abandon Work</button>
+          <button id="export-save" style="background:none; border:1px solid var(--border); color:#888; padding:6px 12px; font-size:12px; cursor:pointer;" title="Show the save code — copy it as a backup">Export Save</button>
+          <button id="import-save" style="background:none; border:1px solid var(--border); color:#888; padding:6px 12px; font-size:12px; cursor:pointer;" title="Paste a save code to restore the work">Import Save</button>
+        </div>
+        <textarea id="save-export" readonly class="save-io" style="display:none;"></textarea>
+        <div id="save-import-row" style="display:none;">
+          <textarea id="save-import" class="save-io" placeholder="Paste the save code here"></textarea>
+          <div style="text-align:right; margin-top:6px;"><button id="restore-save" style="background:none; border:1px solid var(--border); color:#888; padding:6px 12px; font-size:12px; cursor:pointer;">Restore Save</button></div>
         </div>
       </div>
     </section>
@@ -1848,6 +1857,11 @@
 
   function renderTransmutation() {
     transmuteListEl.innerHTML = "";
+    // The work's next step, marked on the transmute panel: the first un-forged
+    // tech whose prereqs are all forged points at one metal (or quintessence).
+    const nextTech = TECHS.find(t => !gameState.techTree[t.id] && t.req.every(r => gameState.techTree[r]));
+    const nextMetal = nextTech ? Object.keys(nextTech.cost).find(id => gameState.metals[id]) : null;
+    const nextEssence = nextTech && nextTech.cost["quintessence"] ? "quintessence" : null;
     
     // Metals
     const mHeader = document.createElement("div");
@@ -1860,10 +1874,10 @@
     for (const [id, data] of Object.entries(gameState.metals)) {
       const recipe = METAL_RECIPES[id];
       const div = document.createElement("div");
-      div.className = "tech-item";
+      div.className = "tech-item" + (id === nextMetal ? " next" : "");
       const costStr = formatCost(recipe.cost);
       div.innerHTML = `
-        <span class="tech-name">${iconHtml(id, 16, data.name)}${data.sym} ${data.name}</span>
+        <span class="tech-name">${iconHtml(id, 16, data.name)}${data.sym} ${data.name}${id === nextMetal ? ` <span class="next-chip">next</span>` : ""}</span>
         <span class="tech-cost">${costStr}</span>
         <div class="transmute-actions">
           <button class="transmute-btn" id="transmute-m-${id}">Transmute</button>
@@ -1895,10 +1909,10 @@
       const data = gameState.elements[id];
       const recipe = ELEMENT_RECIPES[id];
       const div = document.createElement("div");
-      div.className = "tech-item";
+      div.className = "tech-item" + (nextEssence ? " next" : "");
       const costStr = formatCost(recipe.cost);
       div.innerHTML = `
-        <span class="tech-name">${iconHtml("quintessence", 16, data.name)}${data.sym} ${data.name}</span>
+        <span class="tech-name">${iconHtml("quintessence", 16, data.name)}${data.sym} ${data.name}${nextEssence ? ` <span class="next-chip">next</span>` : ""}</span>
         <span class="tech-desc">Unite earth, water, air and fire.</span>
         <span class="tech-cost">${costStr}</span>
         <div class="transmute-actions">
@@ -1922,7 +1936,7 @@
 
   const SAVE_KEY = "greatwork_v4";
 
-  function saveProgress() {
+  function serializeSave() {
     // The in-progress board is saved with the economy: solution, paint and
     // clues are plain data, so a refresh restores the work exactly.
     const wip = {
@@ -1939,8 +1953,10 @@
     };
     // totalSeconds lives outside gameState, so it is saved explicitly —
     // otherwise the opus banner's span resets on every reload.
-    try { localStorage.setItem(SAVE_KEY, JSON.stringify({ ...gameState, wip, savedAt: Date.now(), totalSeconds: Math.max(0, Math.floor(totalSeconds)) })); } catch(e) {}
+    return JSON.stringify({ ...gameState, wip, savedAt: Date.now(), totalSeconds: Math.max(0, Math.floor(totalSeconds)) });
   }
+
+  function saveProgress() { try { localStorage.setItem(SAVE_KEY, serializeSave()); } catch(e) {} }
 
   function mergeInventoryMap(defaultMap, savedMap = {}, legacyMap = {}) {
     const merged = {};
@@ -2070,6 +2086,26 @@
       localStorage.removeItem(SAVE_KEY);
       location.reload();
     }
+  };
+  document.getElementById("export-save").onclick = () => {
+    const ta = document.getElementById("save-export");
+    ta.value = serializeSave();
+    ta.style.display = "block";
+    if (ta.select) ta.select();
+  };
+  document.getElementById("import-save").onclick = () => {
+    document.getElementById("save-import-row").style.display = "block";
+  };
+  document.getElementById("restore-save").onclick = () => {
+    const code = document.getElementById("save-import").value.trim();
+    let ok = false;
+    try {
+      const d = JSON.parse(code);
+      ok = !!d && typeof d === "object" && d.upgrades && d.resources && d.metals && d.elements && d.techTree;
+    } catch (e) {}
+    if (!ok) { setStatus("That save code does not look right.", "err"); return; }
+    localStorage.setItem(SAVE_KEY, code);
+    location.reload();
   };
   document.getElementById("solve-board").onclick = () => {
     for(let i=0;i<cells.length;i++) state[i]= solution[i]===1 ? 1 : (gameState.settings.speedMode ? 0 : 2);

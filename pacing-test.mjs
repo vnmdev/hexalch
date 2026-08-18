@@ -73,7 +73,7 @@ function mulberry32(seed) {
         const idm = m[2].match(/id="([^"]+)"/);
         if (idm) { el.id = idm[1]; byId.set(idm[1], el); }
         if (/\bdisabled\b/.test(m[2])) el.disabled = true;
-        this.children.push(el);
+        el.parent = this; this.children.push(el);
       }
     }
     get innerHTML() { return this._innerHTML; }
@@ -1124,6 +1124,37 @@ function runUnitChecks() {
     for (let i = 0; i < G.cells.length; i++) if (G.solution[i] === 1) G.setCell(i, 1);
     G.reportWin();
     check("U61b non-milestone boards stay quiet", !sub().includes("bears fruit"));
+  }
+  // U62: the save code exports, and a pasted code is restored on reload.
+  {
+    const { G, env } = launchGame(72);
+    env.win.fire("keydown", { key: "f" }); // a save now exists
+    env.byId.get("export-save").click();
+    const ta = env.byId.get("save-export");
+    let parsed = null;
+    try { parsed = JSON.parse(ta.value); } catch (e) {}
+    check("U62a export shows a complete save code", ta.value.length > 0 && !!parsed && !!parsed.upgrades && !!parsed.wip && parsed.totalSeconds === 0);
+    env.byId.get("import-save").click();
+    env.byId.get("save-import").value = "not a save";
+    env.byId.get("restore-save").click();
+    check("U62b a bad code is refused", env.reloaded === false && env.doc.getElementById("status").className === "status-err");
+    env.byId.get("save-import").value = ta.value;
+    env.byId.get("restore-save").click();
+    check("U62c a good code is stored and the work reloads", env.reloaded === true && JSON.parse(env.ls.getItem("greatwork_v4")).works === parsed.works);
+  }
+  // U63: the transmute panel marks the work's next recipe.
+  {
+    const { G, env } = launchGame(73);
+    const row = id => env.byId.get(`transmute-m-${id}`).parent.textContent;
+    check("U63a the first recipe is marked", row("lead").includes("next") && !row("silver").includes("next"));
+    G.gameState.elements.earth.amount = 100;
+    G.gameState.metals.lead.amount = 10;
+    G.buyTech("nigredo");
+    G.updateDynamicUI();
+    check("U63b the marker moves with the chain", !row("lead").includes("next") && row("silver").includes("next"));
+    for (const t of G.TECHS) G.gameState.techTree[t.id] = true;
+    G.updateUI();
+    check("U63c the finished chain carries no marker", Object.keys(G.METAL_RECIPES).every(id => !row(id).includes("next")));
   }
 }
 
