@@ -978,6 +978,25 @@ function runUnitChecks() {
     row.fire("mouseleave");
     check("U50c leaving clears the outline", G.poly.every(p => !p.classList.contains("guide-hint")));
   }
+  // U52: the hint outlines one correct green for a flat fee.
+  {
+    const { G, env } = launchGame(63);
+    const prima0 = G.gameState.resources.prima_materia.amount;
+    env.byId.get("hint-board").click();
+    const idx = G.poly.findIndex(p => p.classList.contains("hinted"));
+    check("U52a hint outlines exactly one unpainted correct green",
+      idx >= 0 && G.poly.filter(p => p.classList.contains("hinted")).length === 1 && G.solution[idx] === 1 && G.state[idx] === 0);
+    check("U52b hint costs 5 prima and paints nothing", G.gameState.resources.prima_materia.amount === prima0 - 5 && G.state.every((v, i) => v === (i === idx ? 0 : v)));
+    env.byId.get("hint-board").click();
+    check("U52c a second hint replaces the first", G.poly.filter(p => p.classList.contains("hinted")).length === 1);
+    G.gameState.resources.prima_materia.amount = 0;
+    env.byId.get("hint-board").click();
+    check("U52d hint without prima is refused", G.gameState.resources.prima_materia.amount === 0 && env.doc.getElementById("status").textContent.includes("Not enough prima"));
+    G.gameState.resources.prima_materia.amount = 100;
+    for (let i = 0; i < G.cells.length; i++) if (G.solution[i] === 1) G.setCell(i, 1);
+    env.byId.get("hint-board").click();
+    check("U52e no hidden greens means nothing to hint", env.doc.getElementById("status").textContent.includes("No hidden greens remain"));
+  }
 }
 
 // ---------- Pacing simulation ----------
