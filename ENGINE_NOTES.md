@@ -96,6 +96,11 @@ transmutation engine**. This section is the reference for that layer.
 - **Metals** — lead / iron / copper / silver / gold, transmuted in the
   Alembic (`METAL_RECIPES`), each cross-pool (e.g. copper needs iron +
   fire).
+- **Offline progress**: the save carries `savedAt`; on load, when the
+  gap is at least 60 s (a refresh is not an absence), every generator
+  produces for the elapsed time (capped at 8 h) and the status line
+  announces the idle yield on return ("While you were away, the
+  generators kept working: +N …") (U37).
 
 ### The feed economy (`setCell`)
 - Painting a cell **green feeds it 1 prima**. No prima ⇒ the paint is
@@ -232,8 +237,10 @@ transmutation engine**. This section is the reference for that layer.
   count** — live chip and win banner (U27, U34), the **solve timer** —
   live count, frozen on solve, reported on the banner (U35), the
   **Reveal cost** — forfeited yield and counts no work (U28), the
-  **location announcement** firing once per real change (U30), and the
-  **opus banner** reporting elapsed work time and boards (U36). The DOM stub's
+  **location announcement** firing once per real change (U30), the
+  **opus banner** reporting elapsed work time and boards (U36), and
+  **offline generator progress** — idle yield credited after a real
+  absence and announced (U37). The DOM stub's
   `textContent` is DOM-faithful: an `innerHTML` set makes `textContent`
   return the tag-stripped text (the win banner renders output icons via
   `innerHTML`).
